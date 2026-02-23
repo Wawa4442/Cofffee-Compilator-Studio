@@ -2,4 +2,4 @@
 name = "PySide Project"
 
 [tool.pyside6-project]
-files = ["main.py"]
+files = ["editor.py", "main.py", "ventana_principal.py"]
