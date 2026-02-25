@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 18.0.2, 2026-02-22T19:01:16. -->
+<!-- Written by QtCreator 18.0.2, 2026-02-25T11:04:56. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -155,7 +155,7 @@
      <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">main.py</value>
      <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">PythonEditor.RunConfiguration.</value>
      <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">C:/Users/ivon/Documents/8vo/Compiladores/Proyecto Compilador/Cofffee-Compilator-Studio/main.py</value>
-     <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">false</value>
+     <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">true</value>
      <value type="QString" key="ProjectExplorer.RunConfiguration.UniqueId"></value>
      <value type="QString" key="PythonEditor.RunConfiguation.Script">C:\Users\ivon\Documents\8vo\Compiladores\Proyecto Compilador\Cofffee-Compilator-Studio\main.py</value>
      <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
@@ -192,7 +192,7 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">main.py</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">PythonEditor.RunConfiguration.</value>
     <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">C:/Users/ivon/Documents/8vo/Compiladores/Proyecto Compilador/Cofffee-Compilator-Studio/main.py</value>
-    <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">false</value>
+    <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">true</value>
     <value type="QString" key="ProjectExplorer.RunConfiguration.UniqueId"></value>
     <value type="QString" key="PythonEditor.RunConfiguation.Script">C:\Users\ivon\Documents\8vo\Compiladores\Proyecto Compilador\Cofffee-Compilator-Studio\main.py</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>

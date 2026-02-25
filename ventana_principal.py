@@ -1,263 +1,446 @@
 import os
 import sys
-import subprocess
+
 from PySide6.QtWidgets import (
-    QMainWindow, QTextEdit, QTabWidget, QToolBar, QSplitter,
-    QStatusBar, QFileDialog, QMessageBox, QApplication
+    QMainWindow, QTextEdit, QTabWidget, QToolBar,
+    QSplitter, QStatusBar, QFileDialog,
+    QMessageBox, QApplication
 )
-from PySide6.QtGui import QAction, QIcon
+
+from PySide6.QtGui import QAction, QFont
 from PySide6.QtCore import Qt
-# Asegúrate de que editor.py exista y tenga la clase EditorCodigo
+
 from editor import EditorCodigo
 
+
 class VentanaPrincipal(QMainWindow):
-    def __init__(self, archivo_inicial=None):
+
+    def __init__(self):
+
         super().__init__()
 
-        self.setWindowTitle("Coffee Compiler Studio - UAA 2026")
-        self.resize(1200, 900)
+        self.setWindowTitle("Coffee Compiler Studio")
+        self.resize(1200,900)
 
-        # --- Widget Central: Pestañas ---
+
+# EDITOR
+
         self.tabs_editor = QTabWidget()
         self.tabs_editor.setTabsClosable(True)
         self.tabs_editor.tabCloseRequested.connect(self.cerrar_pestana)
 
-        # --- Paneles de Análisis ---
+
+# ANALISIS
+
         self.tabs_analisis = QTabWidget()
+
         self.res_lexico = QTextEdit()
         self.res_sintactico = QTextEdit()
         self.res_semantico = QTextEdit()
         self.res_intermedio = QTextEdit()
         self.tabla_simbolos = QTextEdit()
 
-        for panel, nombre in [(self.res_lexico, "Léxico"), (self.res_sintactico, "Sintáctico"),
-                             (self.res_semantico, "Semántico"), (self.res_intermedio, "Intermedio"),
-                             (self.tabla_simbolos, "Tabla Símbolos")]:
-            panel.setReadOnly(True)
-            self.tabs_analisis.addTab(panel, nombre)
 
-        # --- Paneles Inferiores ---
+# INFERIOR
+
         self.tabs_inferiores = QTabWidget()
+
         self.consola_errores = QTextEdit()
         self.salida_ejecucion = QTextEdit()
-        self.tabs_inferiores.addTab(self.consola_errores, "Lista de Errores")
-        self.tabs_inferiores.addTab(self.salida_ejecucion, "Resultado de Ejecución")
 
-        # --- Layout ---
-        self.splitter_vertical = QSplitter(Qt.Vertical)
-        self.splitter_vertical.addWidget(self.tabs_analisis)
-        self.splitter_vertical.addWidget(self.tabs_inferiores)
 
-        self.splitter_horizontal = QSplitter(Qt.Horizontal)
-        self.splitter_horizontal.addWidget(self.tabs_editor)
-        self.splitter_horizontal.addWidget(self.splitter_vertical)
-        self.splitter_horizontal.setStretchFactor(0, 3)
+# CONFIG TEXTO
 
-        self.setCentralWidget(self.splitter_horizontal)
+        fuente = QFont("Consolas",10)
+
+        for panel in [
+
+            self.res_lexico,
+            self.res_sintactico,
+            self.res_semantico,
+            self.res_intermedio,
+            self.tabla_simbolos,
+            self.consola_errores,
+            self.salida_ejecucion
+
+        ]:
+
+            panel.setReadOnly(True)
+            panel.setFont(fuente)
+            panel.setLineWrapMode(QTextEdit.NoWrap)
+
+
+# TABS
+
+        self.tabs_analisis.addTab(self.res_lexico,"Léxico")
+        self.tabs_analisis.addTab(self.res_sintactico,"Sintáctico")
+        self.tabs_analisis.addTab(self.res_semantico,"Semántico")
+        self.tabs_analisis.addTab(self.res_intermedio,"Código Intermedio")
+        self.tabs_analisis.addTab(self.tabla_simbolos,"Tabla Símbolos")
+
+        self.tabs_inferiores.addTab(self.consola_errores,"Errores")
+        self.tabs_inferiores.addTab(self.salida_ejecucion,"Ejecución")
+
+
+# LAYOUT
+
+        splitterV = QSplitter(Qt.Vertical)
+        splitterV.addWidget(self.tabs_analisis)
+        splitterV.addWidget(self.tabs_inferiores)
+
+        splitterH = QSplitter(Qt.Horizontal)
+        splitterH.addWidget(self.tabs_editor)
+        splitterH.addWidget(splitterV)
+
+        splitterH.setStretchFactor(0,3)
+
+        self.setCentralWidget(splitterH)
+
 
         self.crear_menus()
         self.crear_toolbar()
+
         self.setStatusBar(QStatusBar())
 
-        # LÓGICA DE APERTURA INICIAL
-        if archivo_inicial:
-            self.cargar_archivo_en_pestana(archivo_inicial)
-        else:
-            self.nuevo_archivo()
+        self.nuevo_archivo()
 
-    # ======================
-    # LÓGICA DE VENTANAS (PROYECTOS)
-    # ======================
 
-    def lanzar_nueva_instancia(self, ruta_archivo):
-        """Lanza una nueva ventana del IDE con un archivo específico"""
-        script_actual = sys.argv[0]
-        # Usamos sys.executable para asegurar que use el mismo Python
-        subprocess.Popen([sys.executable, script_actual, ruta_archivo])
 
-    def nuevo_proyecto(self):
-        """Crea un archivo físico y lo abre en una ventana nueva"""
-        nombre, _ = QFileDialog.getSaveFileName(
-            self, "Crear Nuevo Proyecto Coffee", "", "Coffee Files (*.ccs)"
-        )
-        if nombre:
-            if not nombre.lower().endswith('.ccs'):
-                nombre += '.ccs'
-            try:
-                with open(nombre, "w", encoding="utf-8") as f:
-                    f.write("// Nuevo Proyecto Coffee\n\nmain() {\n\t\n}")
-                self.lanzar_nueva_instancia(nombre)
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"No se pudo crear: {e}")
-
-    def abrir_archivo(self):
-        """Abre un archivo existente en una ventana nueva"""
-        nombre, _ = QFileDialog.getOpenFileName(
-            self, "Abrir Proyecto Coffee", "", "Coffee Files (*.ccs);;Todos (*.*)"
-        )
-        if nombre:
-            self.lanzar_nueva_instancia(nombre)
-
-    # ======================
-    # LÓGICA DE PESTAÑAS (DENTRO DE LA VENTANA)
-    # ======================
+# NUEVO
 
     def nuevo_archivo(self):
-        """Crea una pestaña de archivo temporal (Sin título)"""
-        nuevo_editor = EditorCodigo()
-        nuevo_editor.ruta_archivo = None
-        nuevo_editor.textChanged.connect(self.marcar_como_modificado)
-        idx = self.tabs_editor.addTab(nuevo_editor, "Sin título.ccs")
-        self.tabs_editor.setCurrentIndex(idx)
 
-    def cargar_archivo_en_pestana(self, nombre):
-        try:
-            with open(nombre, "r", encoding="utf-8") as f:
-                contenido = f.read()
+        editor = EditorCodigo()
 
-            nuevo_editor = EditorCodigo()
-            nuevo_editor.setPlainText(contenido)
-            nuevo_editor.ruta_archivo = nombre
-            nuevo_editor.textChanged.connect(self.marcar_como_modificado)
+        editor.ruta_archivo = None
 
-            idx = self.tabs_editor.addTab(nuevo_editor, os.path.basename(nombre))
-            self.tabs_editor.setCurrentIndex(idx)
-            self.setWindowTitle(f"Coffee Compiler Studio - {nombre}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo cargar: {e}")
+        editor.textChanged.connect(self.marcar_modificado)
+        editor.cursorPositionChanged.connect(self.actualizar_estado)
 
-    def obtener_editor_actual(self) -> EditorCodigo:
+        i=self.tabs_editor.addTab(editor,"Sin titulo.ccs")
+
+        self.tabs_editor.setCurrentIndex(i)
+
+
+
+# ABRIR
+
+    def abrir_archivo(self):
+
+        nombre,_ = QFileDialog.getOpenFileName(
+
+            self,
+            "Abrir",
+            "",
+            "Archivos (*.ccs *.txt);;Todos (*)"
+
+        )
+
+        if nombre:
+            self.cargar_archivo(nombre)
+
+
+
+# EVITAR DUPLICADOS
+
+    def cargar_archivo(self,nombre):
+
+        for i in range(self.tabs_editor.count()):
+
+            ed=self.tabs_editor.widget(i)
+
+            if hasattr(ed,"ruta_archivo"):
+
+                if ed.ruta_archivo==nombre:
+
+                    self.tabs_editor.setCurrentIndex(i)
+                    return
+
+
+        with open(nombre,"r",encoding="utf8") as f:
+            texto=f.read()
+
+
+        editor=EditorCodigo()
+
+        editor.setPlainText(texto)
+
+        editor.ruta_archivo=nombre
+
+        editor.textChanged.connect(self.marcar_modificado)
+        editor.cursorPositionChanged.connect(self.actualizar_estado)
+
+
+        i=self.tabs_editor.addTab(
+            editor,
+            os.path.basename(nombre)
+        )
+
+        self.tabs_editor.setCurrentIndex(i)
+
+
+
+# EDITOR ACTUAL
+
+    def obtener_editor_actual(self):
         return self.tabs_editor.currentWidget()
 
+
+
+# GUARDAR
+
     def guardar_archivo(self):
-        editor = self.obtener_editor_actual()
-        if not editor: return
-        if editor.ruta_archivo is None:
+
+        ed=self.obtener_editor_actual()
+
+        if not ed:return
+
+        if ed.ruta_archivo==None:
             self.guardar_como()
-        else:
-            self._escribir_a_disco(editor, editor.ruta_archivo)
+            return
+
+        self._guardar(ed,ed.ruta_archivo)
+
+
 
     def guardar_como(self):
-        editor = self.obtener_editor_actual()
-        if not editor: return
-        nombre, _ = QFileDialog.getSaveFileName(
-            self, "Guardar como", "", "Coffee Files (*.ccs);;Todos (*.*)"
+
+        ed=self.obtener_editor_actual()
+
+        if not ed:return
+
+        nombre,_=QFileDialog.getSaveFileName(
+
+            self,
+            "Guardar",
+            "",
+            "Archivos (*.ccs)"
         )
+
         if nombre:
-            if not nombre.lower().endswith('.ccs'): nombre += '.ccs'
-            self._escribir_a_disco(editor, nombre)
-            self.tabs_editor.setTabText(self.tabs_editor.currentIndex(), os.path.basename(nombre))
-            self.setWindowTitle(f"Coffee Compiler Studio - {nombre}")
+            self._guardar(ed,nombre)
 
-    def _escribir_a_disco(self, editor, ruta):
-        try:
-            with open(ruta, "w", encoding="utf-8") as f:
-                f.write(editor.toPlainText())
-            editor.ruta_archivo = ruta
-            idx = self.tabs_editor.indexOf(editor)
-            texto_tab = self.tabs_editor.tabText(idx)
-            if texto_tab.endswith("*"):
-                self.tabs_editor.setTabText(idx, texto_tab[:-1])
-            self.statusBar().showMessage("Guardado", 2000)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error al guardar: {e}")
 
-    def marcar_como_modificado(self):
-        idx = self.tabs_editor.currentIndex()
-        if idx == -1: return
-        texto = self.tabs_editor.tabText(idx)
+
+    def _guardar(self,ed,ruta):
+
+        with open(ruta,"w",encoding="utf8") as f:
+            f.write(ed.toPlainText())
+
+        ed.ruta_archivo=ruta
+
+        i=self.tabs_editor.indexOf(ed)
+
+        self.tabs_editor.setTabText(
+            i,
+            os.path.basename(ruta)
+        )
+
+
+
+# MODIFICADO
+
+    def marcar_modificado(self):
+
+        i=self.tabs_editor.currentIndex()
+
+        if i==-1:return
+
+        texto=self.tabs_editor.tabText(i)
+
         if not texto.endswith("*"):
-            self.tabs_editor.setTabText(idx, texto + "*")
+            self.tabs_editor.setTabText(i,texto+"*")
 
-    def cerrar_pestana(self, indice):
-        editor = self.tabs_editor.widget(indice)
-        texto_tab = self.tabs_editor.tabText(indice)
 
-        if texto_tab.endswith("*"):
-            self.tabs_editor.setCurrentIndex(indice)
-            resp = QMessageBox.question(
-                self, "Guardar cambios",
-                f"¿Guardar cambios en '{texto_tab[:-1]} antes de cerrar?",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+
+# CERRAR PESTAÑA
+
+    def cerrar_pestana(self,i):
+
+        if i<0:return
+
+        self.tabs_editor.setCurrentIndex(i)
+
+        texto=self.tabs_editor.tabText(i)
+
+        if texto.endswith("*"):
+
+            r=QMessageBox.question(
+
+                self,
+                "Guardar cambios",
+                f"¿Guardar cambios en '{texto[:-1]}'?",
+
+                QMessageBox.Save|
+                QMessageBox.Discard|
+                QMessageBox.Cancel
             )
-            if resp == QMessageBox.Save:
+
+            if r==QMessageBox.Save:
                 self.guardar_archivo()
-            elif resp == QMessageBox.Cancel:
-                return False
 
-        self.tabs_editor.removeWidget(editor)
-        # Si cerramos la última pestaña, creamos una nueva vacía
-        if self.tabs_editor.count() == 0:
-            self.nuevo_archivo()
-        return True
-
-    def closeEvent(self, event):
-        while self.tabs_editor.count() > 0:
-            self.tabs_editor.setCurrentIndex(0)
-            if not self.cerrar_pestana(0):
-                event.ignore()
+            elif r==QMessageBox.Cancel:
                 return
+
+
+        self.tabs_editor.removeTab(i)
+
+
+
+# CERRAR PROGRAMA
+
+    def closeEvent(self,event):
+
+        for i in range(self.tabs_editor.count()):
+
+            texto=self.tabs_editor.tabText(i)
+
+            if texto.endswith("*"):
+
+                self.tabs_editor.setCurrentIndex(i)
+
+                r=QMessageBox.question(
+
+                    self,
+                    "Guardar cambios",
+                    f"¿Guardar cambios en '{texto[:-1]}'?",
+
+                    QMessageBox.Save|
+                    QMessageBox.Discard|
+                    QMessageBox.Cancel
+                )
+
+                if r==QMessageBox.Save:
+                    self.guardar_archivo()
+
+                elif r==QMessageBox.Cancel:
+                    event.ignore()
+                    return
+
         event.accept()
 
-    # ======================
-    # MENÚS Y INTERFAZ
-    # ======================
+
+
+# LINEA COLUMNA
+
+    def actualizar_estado(self):
+
+        ed=self.obtener_editor_actual()
+
+        if not ed:return
+
+        c=ed.textCursor()
+
+        self.statusBar().showMessage(
+            f"Línea {c.blockNumber()+1} | Columna {c.columnNumber()+1}"
+        )
+
+
+
+# MENUS
 
     def crear_menus(self):
-        archivo = self.menuBar().addMenu("&Archivo")
 
-        # Nuevo Proyecto
-        acc_proy = QAction("Nuevo Proyecto (Ventana Nueva)", self)
-        acc_proy.setShortcut("Ctrl+Shift+N")
-        acc_proy.triggered.connect(self.nuevo_proyecto)
-        archivo.addAction(acc_proy)
+        archivo=self.menuBar().addMenu("&Archivo")
 
-        # Abrir (Ahora en ventana nueva)
-        acc_abrir = QAction("Abrir Proyecto...", self)
-        acc_abrir.setShortcut("Ctrl+O")
-        acc_abrir.triggered.connect(self.abrir_archivo)
-        archivo.addAction(acc_abrir)
+        archivo.addAction(
+            QAction("Nuevo Archivo",self,
+            shortcut="Ctrl+N",
+            triggered=self.nuevo_archivo)
+        )
+
+        archivo.addAction(
+            QAction("Abrir",self,
+            shortcut="Ctrl+O",
+            triggered=self.abrir_archivo)
+        )
+
+        archivo.addSeparator()
+
+        archivo.addAction(
+            QAction("Guardar",self,
+            shortcut="Ctrl+S",
+            triggered=self.guardar_archivo)
+        )
+
+        archivo.addAction(
+            QAction("Guardar como",self,
+            shortcut="Ctrl+Shift+S",
+            triggered=self.guardar_como)
+        )
 
         archivo.addSeparator()
 
-        # Nuevo Archivo (Pestaña)
-        acc_nuevo = QAction("Nuevo Archivo (Pestaña)", self)
-        acc_nuevo.setShortcut("Ctrl+N")
-        acc_nuevo.triggered.connect(self.nuevo_archivo)
-        archivo.addAction(acc_nuevo)
+        archivo.addAction(
+            QAction("Cerrar pestaña",self,
+            shortcut="Ctrl+W",
+            triggered=lambda:self.cerrar_pestana(
+                self.tabs_editor.currentIndex()))
+        )
 
-        archivo.addAction(QAction("Guardar", self, shortcut="Ctrl+S", triggered=self.guardar_archivo))
-        archivo.addAction(QAction("Guardar como...", self, shortcut="Ctrl+Shift+S", triggered=self.guardar_como))
+        archivo.addAction(
+            QAction("Salir",self,
+            shortcut="Ctrl+Q",
+            triggered=self.close)
+        )
 
-        archivo.addSeparator()
-        archivo.addAction(QAction("Cerrar Pestaña", self, shortcut="Ctrl+W", triggered=lambda: self.cerrar_pestana(self.tabs_editor.currentIndex())))
-        archivo.addAction(QAction("Salir", self, shortcut="Ctrl+Q", triggered=self.close))
 
-        ver = self.menuBar().addMenu("&Ver")
-        ver.addAction(QAction("Aumentar Zoom", self, shortcut="Ctrl++", triggered=lambda: self.obtener_editor_actual().zoomIn(2)))
-        ver.addAction(QAction("Disminuir Zoom", self, shortcut="Ctrl+-", triggered=lambda: self.obtener_editor_actual().zoomOut(2)))
+# COMPILAR MENU
 
-    def wheelEvent(self, event):
-        if event.modifiers() == Qt.ControlModifier:
-            ed = self.obtener_editor_actual()
-            if ed:
-                if event.angleDelta().y() > 0: ed.zoomIn(2)
-                else: ed.zoomOut(2)
-        else:
-            super().wheelEvent(event)
+        compilar=self.menuBar().addMenu("&Compilar")
+        self.agregar_fases(compilar)
+
+
+# VER MENU
+
+        ver=self.menuBar().addMenu("&Ver")
+
+        ver.addAction(QAction(
+            "Zoom +",
+            self,
+            shortcut="Ctrl++",
+            triggered=lambda:self.obtener_editor_actual().zoomIn(2)
+        ))
+
+        ver.addAction(QAction(
+            "Zoom -",
+            self,
+            shortcut="Ctrl+-",
+            triggered=lambda:self.obtener_editor_actual().zoomOut(2)
+        ))
+
+
+# TOOLBAR
 
     def crear_toolbar(self):
-        toolbar = QToolBar("Main")
+
+        toolbar=QToolBar("Compilación")
+
         self.addToolBar(toolbar)
-        for f in ["Léxico", "Sintáctico", "Semántico", "Intermedio", "Ejecutar"]:
-            toolbar.addAction(QAction(f, self))
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
+        self.agregar_fases(toolbar)
 
-    # Si hay un argumento, es la ruta de un archivo a abrir
-    archivo_a_cargar = sys.argv[1] if len(sys.argv) > 1 and os.path.exists(sys.argv[1]) else None
 
-    window = VentanaPrincipal(archivo_inicial=archivo_a_cargar)
-    window.show()
+    def agregar_fases(self,objeto):
+
+        fases=[
+            "Léxico",
+            "Sintáctico",
+            "Semántico",
+            "Intermedio",
+            "Ejecutar"
+        ]
+
+        for f in fases:
+            objeto.addAction(QAction(f,self))
+
+
+if __name__=="__main__":
+
+    app=QApplication(sys.argv)
+
+    w=VentanaPrincipal()
+
+    w.show()
+
     sys.exit(app.exec())
