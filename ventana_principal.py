@@ -7,8 +7,8 @@ from PySide6.QtWidgets import (
     QMessageBox, QApplication
 )
 
-from PySide6.QtGui import QAction, QFont
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QFont, QIcon
+from PySide6.QtCore import Qt, QSize
 
 from editor import EditorCodigo
 
@@ -98,6 +98,7 @@ class VentanaPrincipal(QMainWindow):
 
 
         self.crear_menus()
+        self.crear_toolbar_archivo()
         self.crear_toolbar()
 
         self.setStatusBar(QStatusBar())
@@ -409,12 +410,57 @@ class VentanaPrincipal(QMainWindow):
             triggered=lambda:self.obtener_editor_actual().zoomOut(2)
         ))
 
+# TOOLBAR ARCHIVOS
+
+    def crear_toolbar_archivo(self):
+        """Crea la barra de herramientas para la gestión de archivos con iconos."""
+        toolbar_archivo = QToolBar("Archivo")
+        toolbar_archivo.setIconSize(QSize(36, 36))
+
+        toolbar_archivo.setToolButtonStyle(Qt.ToolButtonIconOnly)
+
+        self.addToolBar(Qt.TopToolBarArea, toolbar_archivo)
+
+        # 1. Acción Nuevo
+        icono_nuevo = QIcon("assets/file_new.png")
+        accion_nuevo = QAction(icono_nuevo, "Nuevo Archivo", self)
+        accion_nuevo.setShortcut("Ctrl+N")
+        accion_nuevo.setToolTip("Crear un nuevo archivo de Coffee (Ctrl+N)")
+        accion_nuevo.triggered.connect(self.nuevo_archivo)
+        toolbar_archivo.addAction(accion_nuevo)
+
+        # 2. Acción Abrir
+        icono_abrir = QIcon("assets/file_open.png")
+        accion_abrir = QAction(icono_abrir, "Abrir", self)
+        accion_abrir.setShortcut("Ctrl+O")
+        accion_abrir.setToolTip("Abrir archivo existente (Ctrl+O)")
+        accion_abrir.triggered.connect(self.abrir_archivo)
+        toolbar_archivo.addAction(accion_abrir)
+
+        # 3. Acción Guardar
+        icono_guardar = QIcon("assets/file_save.png")
+        accion_guardar = QAction(icono_guardar, "Guardar", self)
+        accion_guardar.setShortcut("Ctrl+S")
+        accion_guardar.setToolTip("Guardar archivo actual (Ctrl+S)")
+        accion_guardar.triggered.connect(self.guardar_archivo)
+        toolbar_archivo.addAction(accion_guardar)
+
+        # 4. Acción Guardar como
+        icono_guardar_como = QIcon("assets/file_save_as.png")
+        accion_guardar_como = QAction(icono_guardar_como, "Guardar como", self)
+        accion_guardar_como.setShortcut("Ctrl+Shift+S")
+        accion_guardar_como.setToolTip("Guardar archivo actual con otro nombre (Ctrl+Shift+S)")
+        accion_guardar_como.triggered.connect(self.guardar_como)
+        toolbar_archivo.addAction(accion_guardar_como)
 
 # TOOLBAR
 
     def crear_toolbar(self):
 
         toolbar=QToolBar("Compilación")
+
+        toolbar.setIconSize(QSize(36, 36))
+        toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
 
         self.addToolBar(toolbar)
 
@@ -423,16 +469,22 @@ class VentanaPrincipal(QMainWindow):
 
     def agregar_fases(self,objeto):
 
-        fases=[
-            "Léxico",
-            "Sintáctico",
-            "Semántico",
-            "Intermedio",
-            "Ejecutar"
+        fases = [
+                {"nombre": "Léxico", "icono": "assets/lexico.png"},
+                {"nombre": "Sintáctico", "icono": "assets/sintactico.png"},
+                {"nombre": "Semántico", "icono": "assets/semantico.png"},
+                {"nombre": "Intermedio", "icono": "assets/intermedio.png"},
+                {"nombre": "Ejecutar", "icono": "assets/ejecutar.png"}
         ]
 
         for f in fases:
-            objeto.addAction(QAction(f,self))
+                icono = QIcon(f["icono"])
+
+                accion = QAction(icono, f["nombre"], self)
+
+                accion.setToolTip(f["nombre"])
+
+                objeto.addAction(accion)
 
 
 if __name__=="__main__":
