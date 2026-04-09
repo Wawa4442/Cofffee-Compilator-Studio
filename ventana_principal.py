@@ -11,6 +11,7 @@ from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtCore import Qt, QSize
 
 from editor import EditorCodigo
+from lexer import Lexer
 
 
 class VentanaPrincipal(QMainWindow):
@@ -22,13 +23,11 @@ class VentanaPrincipal(QMainWindow):
         self.setWindowTitle("Coffee Compiler Studio")
         self.resize(1200,900)
 
-
 # EDITOR
 
         self.tabs_editor = QTabWidget()
         self.tabs_editor.setTabsClosable(True)
         self.tabs_editor.tabCloseRequested.connect(self.cerrar_pestana)
-
 
 # ANALISIS
 
@@ -40,14 +39,12 @@ class VentanaPrincipal(QMainWindow):
         self.res_intermedio = QTextEdit()
         self.tabla_simbolos = QTextEdit()
 
-
 # INFERIOR
 
         self.tabs_inferiores = QTabWidget()
 
         self.consola_errores = QTextEdit()
         self.salida_ejecucion = QTextEdit()
-
 
 # CONFIG TEXTO
 
@@ -69,7 +66,6 @@ class VentanaPrincipal(QMainWindow):
             panel.setFont(fuente)
             panel.setLineWrapMode(QTextEdit.NoWrap)
 
-
 # TABS
 
         self.tabs_analisis.addTab(self.res_lexico,"Léxico")
@@ -80,7 +76,6 @@ class VentanaPrincipal(QMainWindow):
 
         self.tabs_inferiores.addTab(self.consola_errores,"Errores")
         self.tabs_inferiores.addTab(self.salida_ejecucion,"Ejecución")
-
 
 # LAYOUT
 
@@ -96,7 +91,6 @@ class VentanaPrincipal(QMainWindow):
 
         self.setCentralWidget(splitterH)
 
-
         self.crear_menus()
         self.crear_toolbar_archivo()
         self.crear_toolbar()
@@ -104,8 +98,6 @@ class VentanaPrincipal(QMainWindow):
         self.setStatusBar(QStatusBar())
 
         self.nuevo_archivo()
-
-
 
 # NUEVO
 
@@ -121,8 +113,6 @@ class VentanaPrincipal(QMainWindow):
         i=self.tabs_editor.addTab(editor,"Sin titulo.ccs")
 
         self.tabs_editor.setCurrentIndex(i)
-
-
 
 # ABRIR
 
@@ -140,8 +130,6 @@ class VentanaPrincipal(QMainWindow):
         if nombre:
             self.cargar_archivo(nombre)
 
-
-
 # EVITAR DUPLICADOS
 
     def cargar_archivo(self,nombre):
@@ -157,10 +145,8 @@ class VentanaPrincipal(QMainWindow):
                     self.tabs_editor.setCurrentIndex(i)
                     return
 
-
         with open(nombre,"r",encoding="utf8") as f:
             texto=f.read()
-
 
         editor=EditorCodigo()
 
@@ -171,7 +157,6 @@ class VentanaPrincipal(QMainWindow):
         editor.textChanged.connect(self.marcar_modificado)
         editor.cursorPositionChanged.connect(self.actualizar_estado)
 
-
         i=self.tabs_editor.addTab(
             editor,
             os.path.basename(nombre)
@@ -179,14 +164,10 @@ class VentanaPrincipal(QMainWindow):
 
         self.tabs_editor.setCurrentIndex(i)
 
-
-
 # EDITOR ACTUAL
 
     def obtener_editor_actual(self):
         return self.tabs_editor.currentWidget()
-
-
 
 # GUARDAR
 
@@ -201,8 +182,6 @@ class VentanaPrincipal(QMainWindow):
             return
 
         self._guardar(ed,ed.ruta_archivo)
-
-
 
     def guardar_como(self):
 
@@ -221,8 +200,6 @@ class VentanaPrincipal(QMainWindow):
         if nombre:
             self._guardar(ed,nombre)
 
-
-
     def _guardar(self,ed,ruta):
 
         with open(ruta,"w",encoding="utf8") as f:
@@ -237,8 +214,6 @@ class VentanaPrincipal(QMainWindow):
             os.path.basename(ruta)
         )
 
-
-
 # MODIFICADO
 
     def marcar_modificado(self):
@@ -251,8 +226,6 @@ class VentanaPrincipal(QMainWindow):
 
         if not texto.endswith("*"):
             self.tabs_editor.setTabText(i,texto+"*")
-
-
 
 # CERRAR PESTAÑA
 
@@ -283,10 +256,7 @@ class VentanaPrincipal(QMainWindow):
             elif r==QMessageBox.Cancel:
                 return
 
-
         self.tabs_editor.removeTab(i)
-
-
 
 # CERRAR PROGRAMA
 
@@ -320,8 +290,6 @@ class VentanaPrincipal(QMainWindow):
 
         event.accept()
 
-
-
 # LINEA COLUMNA
 
     def actualizar_estado(self):
@@ -336,7 +304,30 @@ class VentanaPrincipal(QMainWindow):
             f"Línea {c.blockNumber()+1} | Columna {c.columnNumber()+1}"
         )
 
+# 🔥 ANALISIS LEXICO
 
+    def analisis_lexico(self):
+
+        editor = self.obtener_editor_actual()
+        if not editor:
+            return
+
+        codigo = editor.toPlainText()
+
+        lexer = Lexer(codigo)
+        tokens, errores = lexer.analizar()
+
+        # TOKENS
+        texto_tokens = "\n".join(str(t) for t in tokens)
+        self.res_lexico.setPlainText(texto_tokens)
+
+        # ERRORES
+        lista_errores = []
+
+        for val, linea, col in errores:
+            lista_errores.append(f"Error: '{val}' en línea {linea}, columna {col}")
+
+        self.consola_errores.setPlainText("\n".join(lista_errores))
 
 # MENUS
 
@@ -385,12 +376,10 @@ class VentanaPrincipal(QMainWindow):
             triggered=self.close)
         )
 
-
 # COMPILAR MENU
 
         compilar=self.menuBar().addMenu("&Compilar")
         self.agregar_fases(compilar)
-
 
 # VER MENU
 
@@ -413,45 +402,23 @@ class VentanaPrincipal(QMainWindow):
 # TOOLBAR ARCHIVOS
 
     def crear_toolbar_archivo(self):
-        """Crea la barra de herramientas para la gestión de archivos con iconos."""
+
         toolbar_archivo = QToolBar("Archivo")
         toolbar_archivo.setIconSize(QSize(36, 36))
-
         toolbar_archivo.setToolButtonStyle(Qt.ToolButtonIconOnly)
-
         self.addToolBar(Qt.TopToolBarArea, toolbar_archivo)
 
-        # 1. Acción Nuevo
-        icono_nuevo = QIcon("assets/file_new.png")
-        accion_nuevo = QAction(icono_nuevo, "Nuevo Archivo", self)
-        accion_nuevo.setShortcut("Ctrl+N")
-        accion_nuevo.setToolTip("Crear un nuevo archivo de Coffee (Ctrl+N)")
-        accion_nuevo.triggered.connect(self.nuevo_archivo)
-        toolbar_archivo.addAction(accion_nuevo)
+        acciones = [
+            ("assets/file_new.png","Nuevo Archivo",self.nuevo_archivo),
+            ("assets/file_open.png","Abrir",self.abrir_archivo),
+            ("assets/file_save.png","Guardar",self.guardar_archivo),
+            ("assets/file_save_as.png","Guardar como",self.guardar_como)
+        ]
 
-        # 2. Acción Abrir
-        icono_abrir = QIcon("assets/file_open.png")
-        accion_abrir = QAction(icono_abrir, "Abrir", self)
-        accion_abrir.setShortcut("Ctrl+O")
-        accion_abrir.setToolTip("Abrir archivo existente (Ctrl+O)")
-        accion_abrir.triggered.connect(self.abrir_archivo)
-        toolbar_archivo.addAction(accion_abrir)
-
-        # 3. Acción Guardar
-        icono_guardar = QIcon("assets/file_save.png")
-        accion_guardar = QAction(icono_guardar, "Guardar", self)
-        accion_guardar.setShortcut("Ctrl+S")
-        accion_guardar.setToolTip("Guardar archivo actual (Ctrl+S)")
-        accion_guardar.triggered.connect(self.guardar_archivo)
-        toolbar_archivo.addAction(accion_guardar)
-
-        # 4. Acción Guardar como
-        icono_guardar_como = QIcon("assets/file_save_as.png")
-        accion_guardar_como = QAction(icono_guardar_como, "Guardar como", self)
-        accion_guardar_como.setShortcut("Ctrl+Shift+S")
-        accion_guardar_como.setToolTip("Guardar archivo actual con otro nombre (Ctrl+Shift+S)")
-        accion_guardar_como.triggered.connect(self.guardar_como)
-        toolbar_archivo.addAction(accion_guardar_como)
+        for icono, nombre, func in acciones:
+            accion = QAction(QIcon(icono), nombre, self)
+            accion.triggered.connect(func)
+            toolbar_archivo.addAction(accion)
 
 # TOOLBAR
 
@@ -466,7 +433,6 @@ class VentanaPrincipal(QMainWindow):
 
         self.agregar_fases(toolbar)
 
-
     def agregar_fases(self,objeto):
 
         fases = [
@@ -479,10 +445,10 @@ class VentanaPrincipal(QMainWindow):
 
         for f in fases:
                 icono = QIcon(f["icono"])
-
                 accion = QAction(icono, f["nombre"], self)
 
-                accion.setToolTip(f["nombre"])
+                if f["nombre"] == "Léxico":
+                    accion.triggered.connect(self.analisis_lexico)
 
                 objeto.addAction(accion)
 
