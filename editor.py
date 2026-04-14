@@ -3,6 +3,7 @@
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QCompleter
 from PySide6.QtCore import Qt, QRect, QSize, QThread, Signal, QTimer
 from PySide6.QtGui import QColor, QPainter, QFont, QTextFormat, QTextCharFormat, QSyntaxHighlighter
+from collections import defaultdict
 
 from lexer import Lexer
 
@@ -27,15 +28,15 @@ class LexerWorker(QThread):
 
 
 # =========================
-# HIGHLIGHTER
+# HIGHLIGHTER (OPTIMIZADO)
 # =========================
 
 class Highlighter(QSyntaxHighlighter):
 
     def __init__(self, document):
         super().__init__(document)
-        self.tokens = []
-        self.errores = []
+        self.tokens_por_linea = defaultdict(list)
+        self.errores_por_linea = defaultdict(list)
 
         def fmt(color, underline=False):
             f = QTextCharFormat()
@@ -57,39 +58,35 @@ class Highlighter(QSyntaxHighlighter):
         }
 
     def setData(self, tokens, errores):
-        self.tokens = tokens
-        self.errores = errores
+        self.tokens_por_linea.clear()
+        self.errores_por_linea.clear()
+
+        for t in tokens:
+            self.tokens_por_linea[t.linea].append(t)
+
+        for val, linea, col in errores:
+            self.errores_por_linea[linea].append((val, col))
+
         self.rehighlight()
 
     def highlightBlock(self, text):
-
-        block = self.currentBlock()
-        block_pos = block.position()
-        block_end = block_pos + len(text)
+        numero_linea = self.currentBlock().blockNumber() + 1
 
         prev_state = self.previousBlockState()
-
         if prev_state == 1:
             start_index = 0
         else:
             start_index = text.find("/*")
 
         while start_index >= 0:
-
             end_index = text.find("*/", start_index)
-
             if end_index == -1:
                 self.setCurrentBlockState(1)
-
                 length = len(text) - start_index
-
                 self.setFormat(start_index, length, self.formats["COMENTARIO"])
-
                 if not self._comentario_cerrado_global():
                     self.setFormat(start_index, length, self.formats["COMENTARIO_ERROR"])
-
                 return
-
             else:
                 length = end_index - start_index + 2
                 self.setFormat(start_index, length, self.formats["COMENTARIO"])
@@ -97,41 +94,16 @@ class Highlighter(QSyntaxHighlighter):
 
         self.setCurrentBlockState(0)
 
-        for t in self.tokens:
+        for t in self.tokens_por_linea.get(numero_linea, []):
+            start = t.columna - 1
+            length = len(t.valor)
+            self.setFormat(start, length, self.formats.get(t.tipo, QTextCharFormat()))
 
-            inicio = self._pos(t.linea, t.columna)
-            fin = inicio + len(t.valor)
+        for val, col in self.errores_por_linea.get(numero_linea, []):
+            start = col - 1
+            length = len(val)
+            self.setFormat(start, length, self.formats["ERROR"])
 
-            if fin < block_pos or inicio > block_end:
-                continue
-
-            start = max(inicio, block_pos)
-            end = min(fin, block_end)
-
-            self.setFormat(start - block_pos, end - start,
-                           self.formats.get(t.tipo, QTextCharFormat()))
-
-        for val, linea, col in self.errores:
-
-            inicio = self._pos(linea, col)
-            fin = inicio + len(val)
-
-            if fin < block_pos or inicio > block_end:
-                continue
-
-            start = max(inicio, block_pos)
-            end = min(fin, block_end)
-
-            self.setFormat(start - block_pos, end - start,
-                           self.formats["ERROR"])
-
-    def _pos(self, linea, col):
-        doc = self.document()
-        pos = 0
-        for i in range(linea - 1):
-            block = doc.findBlockByNumber(i)
-            pos += len(block.text()) + 1
-        return pos + col - 1
 
     def _comentario_cerrado_global(self):
         texto = self.document().toPlainText()
