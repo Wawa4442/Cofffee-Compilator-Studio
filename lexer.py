@@ -22,13 +22,15 @@ class Lexer:
             "main","cin","cout"
         }
 
-    def analizar(self):
+    def analizar(self, is_cancelled=None):
         tokens = []
         errores = []
 
         i = 0
 
         while i < len(self.codigo):
+            if is_cancelled and is_cancelled():
+                return [], []
 
             c = self.codigo[i]
 
@@ -127,33 +129,52 @@ class Lexer:
                 while i < len(self.codigo) and (self.codigo[i].isdigit() or self.codigo[i] == "."):
                     if self.codigo[i] == ".":
                         puntos += 1
+                        if puntos > 1:
+                            break
                     i += 1
                     self.columna += 1
 
                 num = self.codigo[inicio:i]
-
-                if puntos > 1:
+                if num.endswith("."):
                     errores.append((num, self.linea, col))
                 else:
                     tokens.append(Token("NUM", num, self.linea, col))
 
                 continue
 
-            # DOBLES
-            if i+1 < len(self.codigo):
-                doble = self.codigo[i:i+2]
-                if doble in ["++","--","==","!=","<=",">=","&&","||"]:
-                    tokens.append(Token("OP", doble, self.linea, self.columna))
-                    i += 2
-                    self.columna += 2
+            # DOBLES Y SIMBOLOS
+            if c in "+-*/%=<>(){};,!&|":
+                j = i + 1
+                temp_linea = self.linea
+                temp_col = self.columna + 1
+
+                while j < len(self.codigo) and self.codigo[j].isspace():
+                    if self.codigo[j] == "\n":
+                        temp_linea += 1
+                        temp_col = 1
+                    else:
+                        temp_col += 1
+                    j += 1
+
+                es_doble = False
+                if j < len(self.codigo):
+                    doble = c + self.codigo[j]
+                    if doble in ["++", "--", "==", "!=", "<=", ">=", "&&", "||"]:
+                        tokens.append(Token("OP", doble, self.linea, self.columna))
+
+                        i = j + 1
+                        self.linea = temp_linea
+                        self.columna = temp_col + 1
+                        es_doble = True
+
+                if es_doble:
                     continue
 
-            # SIMBOLOS
-            if c in "+-*/%=<>(){};,!":
-                tokens.append(Token("SIMBOLO", c, self.linea, self.columna))
-                i += 1
-                self.columna += 1
-                continue
+                if c in "+-*/%=<>(){};,!":
+                    tokens.append(Token("SIMBOLO", c, self.linea, self.columna))
+                    i += 1
+                    self.columna += 1
+                    continue
 
             # ERROR
             errores.append((c, self.linea, self.columna))

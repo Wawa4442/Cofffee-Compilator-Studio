@@ -17,11 +17,13 @@ class LexerWorker(QThread):
     def __init__(self, texto):
         super().__init__()
         self.texto = texto
+        self.is_cancelled = False
 
     def run(self):
         lexer = Lexer(self.texto)
-        tokens, errores = lexer.analizar()
-        self.resultado.emit(tokens, errores)
+        tokens, errores = lexer.analizar(lambda: self.is_cancelled)
+        if not self.is_cancelled:
+            self.resultado.emit(tokens, errores)
 
 
 # =========================
@@ -236,8 +238,8 @@ class EditorCodigo(QPlainTextEdit):
         texto = self.toPlainText()
 
         if self.worker and self.worker.isRunning():
-            self.worker.quit()
-            self.worker.wait()
+            self.worker.is_cancelled = True
+            self.worker.resultado.disconnect()
 
         self.worker = LexerWorker(texto)
         self.worker.resultado.connect(self.actualizar)

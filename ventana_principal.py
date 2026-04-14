@@ -4,7 +4,8 @@ import sys
 from PySide6.QtWidgets import (
     QMainWindow, QTextEdit, QTabWidget, QToolBar,
     QSplitter, QStatusBar, QFileDialog,
-    QMessageBox, QApplication
+    QMessageBox, QApplication,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
 
 from PySide6.QtGui import QAction, QFont, QIcon
@@ -33,7 +34,12 @@ class VentanaPrincipal(QMainWindow):
 
         self.tabs_analisis = QTabWidget()
 
-        self.res_lexico = QTextEdit()
+        self.res_lexico = QTableWidget()
+        self.res_lexico.setColumnCount(3)
+        self.res_lexico.setHorizontalHeaderLabels(["Tipo", "Lexema", "Posición [F:C]"])
+        self.res_lexico.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.res_lexico.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.res_lexico.verticalHeader().setVisible(False)
         self.res_sintactico = QTextEdit()
         self.res_semantico = QTextEdit()
         self.res_intermedio = QTextEdit()
@@ -49,10 +55,10 @@ class VentanaPrincipal(QMainWindow):
 # CONFIG TEXTO
 
         fuente = QFont("Consolas",10)
+        self.res_lexico.setFont(fuente)
 
         for panel in [
 
-            self.res_lexico,
             self.res_sintactico,
             self.res_semantico,
             self.res_intermedio,
@@ -313,15 +319,38 @@ class VentanaPrincipal(QMainWindow):
             return
 
         codigo = editor.toPlainText()
-
         lexer = Lexer(codigo)
         tokens, errores = lexer.analizar()
 
-        # TOKENS
-        texto_tokens = "\n".join(str(t) for t in tokens)
-        self.res_lexico.setPlainText(texto_tokens)
+        tokens_validos = [t for t in tokens if t.tipo != "COMENTARIO"]
 
-        # ERRORES
+        self.res_lexico.setRowCount(0)
+        self.res_lexico.setRowCount(len(tokens_validos))
+
+        texto_tokens = ""
+
+        for row, t in enumerate(tokens_validos):
+            self.res_lexico.setItem(row, 0, QTableWidgetItem(t.tipo))
+            self.res_lexico.setItem(row, 1, QTableWidgetItem(t.valor))
+            self.res_lexico.setItem(row, 2, QTableWidgetItem(f"[{t.linea}:{t.columna}]"))
+
+            texto_tokens += f"{t.tipo}('{t.valor}') [{t.linea}:{t.columna}]\n"
+
+        ruta_actual = editor.ruta_archivo
+
+        if ruta_actual:
+            base = os.path.splitext(ruta_actual)[0]
+            ruta_txt = f"{base}_tokens.txt"
+        else:
+            ruta_txt = "tokens_salida.txt"
+
+        try:
+            with open(ruta_txt, "w", encoding="utf8") as f:
+                f.write(texto_tokens)
+            self.statusBar().showMessage(f"Análisis completo. Tokens guardados en: {ruta_txt}", 5000)
+        except Exception as e:
+            self.statusBar().showMessage(f"Error al guardar txt: {e}", 5000)
+
         lista_errores = []
 
         for val, linea, col in errores:
