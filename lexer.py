@@ -16,10 +16,11 @@ class Lexer:
         self.linea = 1
         self.columna = 1
 
+        # CT-7: Diccionario actualizado con PDF y prueba de la maestra
         self.reservadas = {
-            "if","else","end","do","while",
-            "switch","case","int","float",
-            "main","cin","cout"
+            "if", "then", "else", "end", "do", "while", "until",
+            "switch", "case", "int", "float", "bool", "real",
+            "main", "cin", "cout"
         }
 
     def analizar(self, is_cancelled=None):
@@ -29,12 +30,13 @@ class Lexer:
         i = 0
 
         while i < len(self.codigo):
+            # Verificación de cancelación para el hilo del editor
             if is_cancelled and is_cancelled():
                 return [], []
 
             c = self.codigo[i]
 
-            # ESPACIOS
+            # ESPACIOS Y SALTOS DE LÍNEA
             if c.isspace():
                 if c == "\n":
                     self.linea += 1
@@ -102,12 +104,12 @@ class Lexer:
                     tokens.append(Token("COMENTARIO", self.codigo[inicio:i], self.linea, col))
                     continue
 
-            # IDENTIFICADORES
-            if c.isalpha():
+            # IDENTIFICADORES Y PALABRAS RESERVADAS
+            if c.isalpha() or c == '_':
                 inicio = i
                 col = self.columna
 
-                while i < len(self.codigo) and self.codigo[i].isalnum():
+                while i < len(self.codigo) and (self.codigo[i].isalnum() or self.codigo[i] == '_'):
                     i += 1
                     self.columna += 1
 
@@ -143,40 +145,26 @@ class Lexer:
                 continue
 
             # DOBLES Y SIMBOLOS
-            if c in "+-*/%=<>(){};,!&|":
+            # Se agrega ^ y % exigidos en la gramática
+            if c in "+-*/%=<>(){};,!&|^":
                 j = i + 1
-                temp_linea = self.linea
-                temp_col = self.columna + 1
 
-                while j < len(self.codigo) and self.codigo[j].isspace():
-                    if self.codigo[j] == "\n":
-                        temp_linea += 1
-                        temp_col = 1
-                    else:
-                        temp_col += 1
-                    j += 1
-
-                es_doble = False
+                # Verificamos operadores dobles estrictamente juntos (ej. ==, <=, <<)
                 if j < len(self.codigo):
                     doble = c + self.codigo[j]
-                    if doble in ["++", "--", "==", "!=", "<=", ">=", "&&", "||"]:
+                    if doble in ["++", "--", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>"]:
                         tokens.append(Token("OP", doble, self.linea, self.columna))
+                        i += 2
+                        self.columna += 2
+                        continue
 
-                        i = j + 1
-                        self.linea = temp_linea
-                        self.columna = temp_col + 1
-                        es_doble = True
+                # Si no es un operador doble, se toma como símbolo simple
+                tokens.append(Token("SIMBOLO", c, self.linea, self.columna))
+                i += 1
+                self.columna += 1
+                continue
 
-                if es_doble:
-                    continue
-
-                if c in "+-*/%=<>(){};,!":
-                    tokens.append(Token("SIMBOLO", c, self.linea, self.columna))
-                    i += 1
-                    self.columna += 1
-                    continue
-
-            # ERROR
+            # ERROR LÉXICO (caracteres no reconocidos, ej: @)
             errores.append((c, self.linea, self.columna))
             i += 1
             self.columna += 1

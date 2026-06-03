@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QMainWindow, QTextEdit, QTabWidget, QToolBar,
     QSplitter, QStatusBar, QFileDialog,
     QMessageBox, QApplication,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView,
+    QTreeWidget, QTreeWidgetItem  # Agregados para el AST visual
 )
 
 from PySide6.QtGui import QAction, QFont, QIcon
@@ -13,6 +14,7 @@ from PySide6.QtCore import Qt, QSize
 
 from editor import EditorCodigo
 from lexer import Lexer
+from parser import Parser  # Importamos nuestro nuevo analizador sintáctico
 
 
 class VentanaPrincipal(QMainWindow):
@@ -40,7 +42,11 @@ class VentanaPrincipal(QMainWindow):
         self.res_lexico.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.res_lexico.setEditTriggers(QTableWidget.NoEditTriggers)
         self.res_lexico.verticalHeader().setVisible(False)
-        self.res_sintactico = QTextEdit()
+
+        # CT-11: Reemplazamos QTextEdit por QTreeWidget para el árbol colapsable
+        self.res_sintactico = QTreeWidget()
+        self.res_sintactico.setHeaderLabel("Árbol Sintáctico Abstracto (AST)")
+
         self.res_semantico = QTextEdit()
         self.res_intermedio = QTextEdit()
         self.tabla_simbolos = QTextEdit()
@@ -56,18 +62,15 @@ class VentanaPrincipal(QMainWindow):
 
         fuente = QFont("Consolas",10)
         self.res_lexico.setFont(fuente)
+        self.res_sintactico.setFont(fuente)
 
         for panel in [
-
-            self.res_sintactico,
             self.res_semantico,
             self.res_intermedio,
             self.tabla_simbolos,
             self.consola_errores,
             self.salida_ejecucion
-
         ]:
-
             panel.setReadOnly(True)
             panel.setFont(fuente)
             panel.setLineWrapMode(QTextEdit.NoWrap)
@@ -110,14 +113,10 @@ class VentanaPrincipal(QMainWindow):
     def nuevo_archivo(self):
 
         editor = EditorCodigo()
-
         editor.ruta_archivo = None
-
         editor.textChanged.connect(self.marcar_modificado)
         editor.cursorPositionChanged.connect(self.actualizar_estado)
-
-        i=self.tabs_editor.addTab(editor,"Sin titulo.ccs")
-
+        i = self.tabs_editor.addTab(editor,"Sin titulo.ccs")
         self.tabs_editor.setCurrentIndex(i)
 
 # ABRIR
@@ -125,12 +124,10 @@ class VentanaPrincipal(QMainWindow):
     def abrir_archivo(self):
 
         nombre,_ = QFileDialog.getOpenFileName(
-
             self,
             "Abrir",
             "",
             "Archivos (*.ccs *.txt);;Todos (*)"
-
         )
 
         if nombre:
@@ -141,29 +138,22 @@ class VentanaPrincipal(QMainWindow):
     def cargar_archivo(self,nombre):
 
         for i in range(self.tabs_editor.count()):
-
-            ed=self.tabs_editor.widget(i)
-
+            ed = self.tabs_editor.widget(i)
             if hasattr(ed,"ruta_archivo"):
-
-                if ed.ruta_archivo==nombre:
-
+                if ed.ruta_archivo == nombre:
                     self.tabs_editor.setCurrentIndex(i)
                     return
 
         with open(nombre,"r",encoding="utf8") as f:
-            texto=f.read()
+            texto = f.read()
 
-        editor=EditorCodigo()
-
+        editor = EditorCodigo()
         editor.setPlainText(texto)
-
-        editor.ruta_archivo=nombre
-
+        editor.ruta_archivo = nombre
         editor.textChanged.connect(self.marcar_modificado)
         editor.cursorPositionChanged.connect(self.actualizar_estado)
 
-        i=self.tabs_editor.addTab(
+        i = self.tabs_editor.addTab(
             editor,
             os.path.basename(nombre)
         )
@@ -179,11 +169,10 @@ class VentanaPrincipal(QMainWindow):
 
     def guardar_archivo(self):
 
-        ed=self.obtener_editor_actual()
-
+        ed = self.obtener_editor_actual()
         if not ed:return
 
-        if ed.ruta_archivo==None:
+        if ed.ruta_archivo == None:
             self.guardar_como()
             return
 
@@ -191,12 +180,10 @@ class VentanaPrincipal(QMainWindow):
 
     def guardar_como(self):
 
-        ed=self.obtener_editor_actual()
-
+        ed = self.obtener_editor_actual()
         if not ed:return
 
-        nombre,_=QFileDialog.getSaveFileName(
-
+        nombre,_ = QFileDialog.getSaveFileName(
             self,
             "Guardar",
             "",
@@ -211,10 +198,8 @@ class VentanaPrincipal(QMainWindow):
         with open(ruta,"w",encoding="utf8") as f:
             f.write(ed.toPlainText())
 
-        ed.ruta_archivo=ruta
-
-        i=self.tabs_editor.indexOf(ed)
-
+        ed.ruta_archivo = ruta
+        i = self.tabs_editor.indexOf(ed)
         self.tabs_editor.setTabText(
             i,
             os.path.basename(ruta)
@@ -224,12 +209,9 @@ class VentanaPrincipal(QMainWindow):
 
     def marcar_modificado(self):
 
-        i=self.tabs_editor.currentIndex()
-
-        if i==-1:return
-
-        texto=self.tabs_editor.tabText(i)
-
+        i = self.tabs_editor.currentIndex()
+        if i == -1:return
+        texto = self.tabs_editor.tabText(i)
         if not texto.endswith("*"):
             self.tabs_editor.setTabText(i,texto+"*")
 
@@ -238,28 +220,22 @@ class VentanaPrincipal(QMainWindow):
     def cerrar_pestana(self,i):
 
         if i<0:return
-
         self.tabs_editor.setCurrentIndex(i)
-
-        texto=self.tabs_editor.tabText(i)
+        texto = self.tabs_editor.tabText(i)
 
         if texto.endswith("*"):
-
-            r=QMessageBox.question(
-
+            r = QMessageBox.question(
                 self,
                 "Guardar cambios",
                 f"¿Guardar cambios en '{texto[:-1]}'?",
-
                 QMessageBox.Save|
                 QMessageBox.Discard|
                 QMessageBox.Cancel
             )
 
-            if r==QMessageBox.Save:
+            if r == QMessageBox.Save:
                 self.guardar_archivo()
-
-            elif r==QMessageBox.Cancel:
+            elif r == QMessageBox.Cancel:
                 return
 
         self.tabs_editor.removeTab(i)
@@ -269,28 +245,21 @@ class VentanaPrincipal(QMainWindow):
     def closeEvent(self,event):
 
         for i in range(self.tabs_editor.count()):
-
-            texto=self.tabs_editor.tabText(i)
-
+            texto = self.tabs_editor.tabText(i)
             if texto.endswith("*"):
-
                 self.tabs_editor.setCurrentIndex(i)
-
-                r=QMessageBox.question(
-
+                r = QMessageBox.question(
                     self,
                     "Guardar cambios",
                     f"¿Guardar cambios en '{texto[:-1]}'?",
-
                     QMessageBox.Save|
                     QMessageBox.Discard|
                     QMessageBox.Cancel
                 )
 
-                if r==QMessageBox.Save:
+                if r == QMessageBox.Save:
                     self.guardar_archivo()
-
-                elif r==QMessageBox.Cancel:
+                elif r == QMessageBox.Cancel:
                     event.ignore()
                     return
 
@@ -300,12 +269,9 @@ class VentanaPrincipal(QMainWindow):
 
     def actualizar_estado(self):
 
-        ed=self.obtener_editor_actual()
-
+        ed = self.obtener_editor_actual()
         if not ed:return
-
-        c=ed.textCursor()
-
+        c = ed.textCursor()
         self.statusBar().showMessage(
             f"Línea {c.blockNumber()+1} | Columna {c.columnNumber()+1}"
         )
@@ -336,33 +302,79 @@ class VentanaPrincipal(QMainWindow):
 
             texto_tokens += f"{t.tipo}('{t.valor}') [{t.linea}:{t.columna}]\n"
 
-        ruta_actual = editor.ruta_archivo
-
-        if ruta_actual:
-            base = os.path.splitext(ruta_actual)[0]
-            ruta_txt = f"{base}_tokens.txt"
-        else:
-            ruta_txt = "tokens_salida.txt"
-
-        try:
-            with open(ruta_txt, "w", encoding="utf8") as f:
-                f.write(texto_tokens)
-            self.statusBar().showMessage(f"Análisis completo. Tokens guardados en: {ruta_txt}", 5000)
-        except Exception as e:
-            self.statusBar().showMessage(f"Error al guardar txt: {e}", 5000)
-
+        # Limpiar la consola antes de mostrar errores
+        self.consola_errores.clear()
         lista_errores = []
 
         for val, linea, col in errores:
-            lista_errores.append(f"Error: '{val}' en línea {linea}, columna {col}")
+            lista_errores.append(f"Error Léxico: '{val}' no reconocido en línea {linea}, columna {col}")
 
-        self.consola_errores.setPlainText("\n".join(lista_errores))
+        if lista_errores:
+            self.consola_errores.setPlainText("\n".join(lista_errores))
+            self.statusBar().showMessage("Análisis Léxico finalizado con errores.", 5000)
+        else:
+            self.statusBar().showMessage("Análisis Léxico completado sin errores.", 5000)
+
+        # Retornamos tokens y errores para que el sintáctico los pueda usar en cadena
+        return tokens_validos, errores
+
+# 🔥 ANALISIS SINTACTICO
+
+    def analisis_sintactico(self):
+        # Primero ejecutamos el léxico para obtener los tokens más recientes
+        resultado_lexico = self.analisis_lexico()
+        if not resultado_lexico:
+            return
+
+        tokens, errores_lexicos = resultado_lexico
+
+        # Iniciamos el parser
+        parser = Parser(tokens)
+        arbol, errores_sintacticos = parser.analizar()
+
+        # Limpiamos el árbol visual anterior
+        self.res_sintactico.clear()
+
+        # Función recursiva para dibujar los nodos en el QTreeWidget
+        def construir_arbol_visual(nodo_ast, item_padre):
+            for hijo in nodo_ast.hijos:
+                hijo_item = QTreeWidgetItem([hijo.nombre])
+                item_padre.addChild(hijo_item)
+                # Llamada recursiva para los hijos del hijo
+                construir_arbol_visual(hijo, hijo_item)
+
+        # Si se generó el árbol raíz, lo dibujamos
+        if arbol:
+            raiz_item = QTreeWidgetItem([arbol.nombre])
+            self.res_sintactico.addTopLevelItem(raiz_item)
+            construir_arbol_visual(arbol, raiz_item)
+            # Expandir todo para que el usuario lo vea inmediatamente
+            self.res_sintactico.expandAll()
+
+        # Consolidar errores en la consola
+        texto_errores = self.consola_errores.toPlainText()
+
+        if errores_sintacticos:
+            if texto_errores:
+                texto_errores += "\n\n"
+            texto_errores += "--- ERRORES SINTÁCTICOS ---\n"
+            for msg, linea, col in errores_sintacticos:
+                texto_errores += f"{msg} en línea {linea}, columna {col}\n"
+
+            self.consola_errores.setPlainText(texto_errores)
+            self.statusBar().showMessage("Análisis Sintáctico finalizado con errores (Modo Pánico activado).", 5000)
+        else:
+            self.statusBar().showMessage("Análisis Sintáctico completado. ¡Estructura validada al 100%!", 5000)
+
+        # Cambiamos automáticamente a la pestaña del Sintáctico
+        self.tabs_analisis.setCurrentIndex(1)
+
 
 # MENUS
 
     def crear_menus(self):
 
-        archivo=self.menuBar().addMenu("&Archivo")
+        archivo = self.menuBar().addMenu("&Archivo")
 
         archivo.addAction(
             QAction("Nuevo Archivo",self,
@@ -407,12 +419,12 @@ class VentanaPrincipal(QMainWindow):
 
 # COMPILAR MENU
 
-        compilar=self.menuBar().addMenu("&Compilar")
+        compilar = self.menuBar().addMenu("&Compilar")
         self.agregar_fases(compilar)
 
 # VER MENU
 
-        ver=self.menuBar().addMenu("&Ver")
+        ver = self.menuBar().addMenu("&Ver")
 
         ver.addAction(QAction(
             "Zoom +",
@@ -453,13 +465,10 @@ class VentanaPrincipal(QMainWindow):
 
     def crear_toolbar(self):
 
-        toolbar=QToolBar("Compilación")
-
+        toolbar = QToolBar("Compilación")
         toolbar.setIconSize(QSize(36, 36))
         toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
-
         self.addToolBar(toolbar)
-
         self.agregar_fases(toolbar)
 
     def agregar_fases(self,objeto):
@@ -478,16 +487,15 @@ class VentanaPrincipal(QMainWindow):
 
                 if f["nombre"] == "Léxico":
                     accion.triggered.connect(self.analisis_lexico)
+                elif f["nombre"] == "Sintáctico":
+                    accion.triggered.connect(self.analisis_sintactico)
 
                 objeto.addAction(accion)
 
 
 if __name__=="__main__":
 
-    app=QApplication(sys.argv)
-
-    w=VentanaPrincipal()
-
+    app = QApplication(sys.argv)
+    w = VentanaPrincipal()
     w.show()
-
     sys.exit(app.exec())
