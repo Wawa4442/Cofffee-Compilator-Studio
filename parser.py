@@ -55,10 +55,17 @@ class Parser:
         Recuperación de errores: salta tokens hasta encontrar
         un final de sentencia (;) o cierre de bloque (}).
         """
-        while self.token_actual and self.token_actual.valor not in [";", "}"]:
-            self.avanzar()
+        while self.token_actual:
+            # Si encontramos un terminador, avanzamos uno y paramos (listos para la sig. sentencia)
+            if self.token_actual.valor in [";", "}"]:
+                self.avanzar()
+                return
 
-        if self.token_actual and self.token_actual.valor in [";", "}"]:
+            # Si el token actual es el INICIO de una nueva sentencia, paramos SIN consumirlo
+            inicios_seguros = ["int", "float", "bool", "real", "if", "while", "do", "cin", "cout"]
+            if self.token_actual.valor in inicios_seguros:
+                return
+
             self.avanzar()
 
     # ==========================================
@@ -152,24 +159,44 @@ class Parser:
 
     def parse_seleccion(self):
         nodo = NodoAST("Sentencia_If")
-        self.coincidir("RESERVADA", "if")
-        self.coincidir("SIMBOLO", "(")
-        nodo.agregar_hijo(self.parse_expresion())
-        self.coincidir("SIMBOLO", ")")
-        self.coincidir("RESERVADA", "then")
 
-        # El then termina cuando vemos un else o un end
+        if not self.coincidir("RESERVADA", "if"): return None
+        if not self.coincidir("SIMBOLO", "("): return None
+
+        # Analizamos la condición (aquí ocurrirá el primer error del &&)
+        nodo.agregar_hijo(self.parse_expresion())
+
+        # --- CONTROL MANUAL DEL PARÉNTESIS DE CIERRE ---
+        if self.token_actual and self.token_actual.valor == ")":
+            self.avanzar() # Todo en orden
+        else:
+            # Reportamos el segundo error exacto de la captura
+            linea = self.token_actual.linea if self.token_actual else "N/A"
+            col = self.token_actual.columna if self.token_actual else "N/A"
+            self.errores.append(("Se esperaba ')' después de la condición", linea, col))
+            # NO retornamos None. Continuamos para salvar el bloque 'then'.
+
+        # --- CONTROL MANUAL DEL THEN ---
+        if self.token_actual and self.token_actual.valor == "then":
+            self.avanzar()
+        else:
+            self.coincidir("RESERVADA", "then") # Fallback al error estándar
+
+        # Ahora el parser puede construir las ramas correctamente
         nodo.agregar_hijo(self.parse_lista_declaracion(["else", "end"]))
 
         if self.token_actual and self.token_actual.valor == "else":
             nodo_else = NodoAST("Rama_Else")
             self.avanzar()
-            # El else termina cuando vemos un end
             nodo_else.agregar_hijo(self.parse_lista_declaracion(["end"]))
             nodo.agregar_hijo(nodo_else)
 
         self.coincidir("RESERVADA", "end")
-        self.coincidir("SIMBOLO", ";")
+
+        # Consumimos el ';' opcional al final del end si existe
+        if self.token_actual and self.token_actual.valor == ";":
+            self.avanzar()
+
         return nodo
 
     def parse_iteracion(self):
@@ -221,18 +248,36 @@ class Parser:
     def parse_sent_in(self):
         nodo = NodoAST("Entrada_Cin")
         self.coincidir("RESERVADA", "cin")
-        self.coincidir("OP", ">>")
+
+        # 1. Capturamos el token del operador de flujo
+        op_token = self.coincidir("OP", ">>")
+
+        # 2. Si se encontró, lo agregamos al árbol como un nodo hijo
+        if op_token:
+            nodo.agregar_hijo(NodoAST(f"Operador: {op_token.valor}"))
+
+        # 3. Capturamos el ID de destino
         id_token = self.coincidir("ID")
         if id_token:
-            nodo.agregar_hijo(NodoAST(f"ID: {id_token.valor}"))
+            nodo.agregar_hijo(NodoAST(f"ID Destino: {id_token.valor}"))
+
         self.coincidir("SIMBOLO", ";")
         return nodo
 
     def parse_sent_out(self):
         nodo = NodoAST("Salida_Cout")
         self.coincidir("RESERVADA", "cout")
-        self.coincidir("OP", "<<")
+
+        # 1. Capturamos el token del operador de flujo
+        op_token = self.coincidir("OP", "<<")
+
+        # 2. Si se encontró, lo agregamos al árbol como un nodo hijo
+        if op_token:
+            nodo.agregar_hijo(NodoAST(f"Operador: {op_token.valor}"))
+
+        # 3. Evaluamos y agregamos la expresión a imprimir
         nodo.agregar_hijo(self.parse_expresion())
+
         self.coincidir("SIMBOLO", ";")
         return nodo
 
@@ -324,6 +369,13 @@ class Parser:
             self.avanzar()
             return nodo
         else:
-            self.errores.append((f"Error Sintáctico: Se esperaba ID, NUM o '(', pero se encontró '{token.valor}'", token.linea, token.columna))
-            self.sincronizar()
-            return NodoAST(f"Error_{token.valor}")
+            # 1. Registramos el error exacto como en la captura
+            msg = f"Se esperaba un número o identificador, se encontró '{token.valor}'"
+            self.errores.append((msg, token.linea, token.columna))
+
+            # 2. Consumimos el token erróneo (el ')') para no generar un ciclo infinito.
+            # Al avanzar, el siguiente token será 'then'.
+            self.avanzar()
+
+            # 3. Retornamos un nodo de error en lugar de activar el modo pánico total
+            return NodoAST("Error: Expresion_Invalida")
