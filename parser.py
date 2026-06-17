@@ -229,20 +229,34 @@ class Parser:
         nodo = NodoAST("Sentencia_Do")
         self.coincidir("RESERVADA", "do")
 
-        # El bloque do termina forzosamente al toparse con while o until
-        nodo.agregar_hijo(self.parse_lista_declaracion(["while", "until"]))
+        # 1. Verificamos si el programador abrió un bloque de llaves
+        usa_llaves = False
+        if self.token_actual and self.token_actual.valor == "{":
+            self.avanzar()
+            usa_llaves = True
 
+        # 2. Procesamos el contenido del bloque
+        if usa_llaves:
+            # Si hay llaves, el bloque absorbe todo (incluso otros while) hasta topar con '}'
+            nodo.agregar_hijo(self.parse_lista_declaracion(["}"]))
+            self.coincidir("SIMBOLO", "}")
+        else:
+            # Si no hay llaves, se detendrá en el primer while/until (útil solo si no hay anidamiento)
+            nodo.agregar_hijo(self.parse_lista_declaracion(["while", "until"]))
+
+        # 3. Procesamos la condición de cierre del ciclo Do
         if self.token_actual and self.token_actual.valor in ["while", "until"]:
             token_cierre = self.token_actual
             self.avanzar()
             nodo.agregar_hijo(NodoAST(f"Condicion: {token_cierre.valor}"))
         else:
-            self.coincidir("RESERVADA", "while")
+            self.coincidir("RESERVADA", "while") # Lanza error si no lo encuentra
 
         self.coincidir("SIMBOLO", "(")
         nodo.agregar_hijo(self.parse_expresion())
         self.coincidir("SIMBOLO", ")")
         self.coincidir("SIMBOLO", ";")
+
         return nodo
 
     def parse_sent_in(self):
@@ -304,18 +318,32 @@ class Parser:
     # ==========================================
 
     def parse_expresion(self):
-            nodo_izq = self.parse_expresion_simple()
+        """ Nivel 1: Precedencia más baja (Operadores Lógicos &&, ||) """
+        # Llamamos al siguiente nivel de precedencia en lugar de a expresion_simple
+        nodo_izq = self.parse_expresion_relacional()
 
-            # 🔥 EL CAMBIO ESTÁ AQUÍ: Cambiamos 'if' por 'while' para permitir
-            # encadenar múltiples condiciones (ej. a < b && c != 0 || d > 1)
-            while self.token_actual and self.token_actual.valor in ["<", "<=", ">", ">=", "==", "!=", "&&", "||"]:
-                nodo_op = NodoAST(f"Operador Relacional/Logico: {self.token_actual.valor}")
-                self.avanzar()
-                nodo_op.agregar_hijo(nodo_izq)
-                nodo_op.agregar_hijo(self.parse_expresion_simple())
-                nodo_izq = nodo_op
+        while self.token_actual and self.token_actual.valor in ["&&", "||"]:
+            nodo_op = NodoAST(f"Operador Logico: {self.token_actual.valor}")
+            self.avanzar()
+            nodo_op.agregar_hijo(nodo_izq)
+            nodo_op.agregar_hijo(self.parse_expresion_relacional())
+            nodo_izq = nodo_op
 
-            return nodo_izq
+        return nodo_izq
+
+    def parse_expresion_relacional(self):
+        """ Nivel 2: Precedencia media (Operadores Relacionales ==, >, <, etc.) """
+        # Llamamos al siguiente nivel (Aritméticos: suma/resta)
+        nodo_izq = self.parse_expresion_simple()
+
+        while self.token_actual and self.token_actual.valor in ["<", "<=", ">", ">=", "==", "!="]:
+            nodo_op = NodoAST(f"Operador Relacional: {self.token_actual.valor}")
+            self.avanzar()
+            nodo_op.agregar_hijo(nodo_izq)
+            nodo_op.agregar_hijo(self.parse_expresion_simple())
+            nodo_izq = nodo_op
+
+        return nodo_izq
 
     def parse_expresion_simple(self):
         nodo_izq = self.parse_termino()
