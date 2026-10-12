@@ -207,33 +207,43 @@ class SemanticAnalyzer:
             nodo_exp = nodo.hijos[1]
             tipo_exp, val_exp = self.evaluar_expresion(nodo_exp)
 
-            nodo.tipo_dato = tipo_var
-            nodo.valor_constante = val_exp
+            es_compatible = True
 
             # Verificación de compatibilidad de tipos
-            if tipo_var != "ERROR_TYPE" and tipo_exp != "ERROR_TYPE":
-                if tipo_var == "int" and tipo_exp == "float":
-                    # Error crítico: asignación de flotante a entero con pérdida de precisión
-                    self.reportar_error(
-                        f"Incompatibilidad de tipos en asignación: no se puede asignar un valor 'float' a la variable entera '{nombre_id}'",
-                        hijo_id.linea or nodo.linea,
-                        hijo_id.columna or nodo.columna
-                    )
-                elif tipo_var == "bool" and tipo_exp != "bool":
-                    self.reportar_error(
-                        f"Incompatibilidad de tipos en asignación: se esperaba expresión booleana para '{nombre_id}', pero se obtuvo '{tipo_exp}'",
-                        hijo_id.linea or nodo.linea,
-                        hijo_id.columna or nodo.columna
-                    )
-                elif tipo_var in ["float", "real"] and tipo_exp == "int":
-                    # Promoción implícita válida: int -> float
-                    pass
-                elif tipo_var != tipo_exp:
-                    self.reportar_error(
-                        f"Incompatibilidad de tipos: no se puede asignar '{tipo_exp}' a variable '{nombre_id}' de tipo '{tipo_var}'",
-                        hijo_id.linea or nodo.linea,
-                        hijo_id.columna or nodo.columna
-                    )
+            if tipo_var == "ERROR_TYPE" or tipo_exp == "ERROR_TYPE":
+                es_compatible = False
+            elif tipo_var == "int" and tipo_exp == "float":
+                # Error crítico: asignación de flotante a entero con pérdida de precisión
+                self.reportar_error(
+                    f"Incompatibilidad de tipos en asignación: no se puede asignar un valor 'float' a la variable entera '{nombre_id}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+            elif tipo_var == "bool" and tipo_exp != "bool":
+                self.reportar_error(
+                    f"Incompatibilidad de tipos en asignación: se esperaba expresión booleana para '{nombre_id}', pero se obtuvo '{tipo_exp}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+            elif tipo_var in ["float", "real"] and tipo_exp == "int":
+                # Promoción implícita válida: int -> float
+                es_compatible = True
+            elif tipo_var != tipo_exp:
+                self.reportar_error(
+                    f"Incompatibilidad de tipos: no se puede asignar '{tipo_exp}' a variable '{nombre_id}' de tipo '{tipo_var}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+
+            if es_compatible:
+                nodo.tipo_dato = tipo_var
+                nodo.valor_constante = val_exp
+            else:
+                nodo.tipo_dato = "ERROR_TYPE"
+                nodo.valor_constante = None
 
     # =========================================================================
     # ESTRUCTURAS DE CONTROL (IF, WHILE, DO-UNTIL)

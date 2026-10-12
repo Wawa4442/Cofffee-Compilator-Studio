@@ -134,12 +134,15 @@ class Parser:
         return nodo
 
     def parse_declaracion(self):
-        nodo = NodoAST("Declaracion")
+        """
+        Parsea un elemento dentro del bloque: ya sea una declaración de variables
+        o una sentencia ejecutable (asignación, control de flujo, etc.).
+        Retorna el nodo correspondiente directamente sin nodos envoltorios innecesarios.
+        """
         if self.token_actual and self.token_actual.valor in ["int", "float", "bool", "real"]:
-            nodo.agregar_hijo(self.parse_declaracion_variable())
+            return self.parse_declaracion_variable()
         else:
-            nodo.agregar_hijo(self.parse_sentencia())
-        return nodo
+            return self.parse_sentencia()
 
     def parse_declaracion_variable(self):
         tipo_token = self.token_actual
