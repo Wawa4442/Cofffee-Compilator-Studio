@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt, QSize
 from editor import EditorCodigo
 from lexer import Lexer
 from parser import Parser  # Importamos nuestro nuevo analizador sintáctico
+from semantic_analyzer import SemanticAnalyzer
 
 
 class VentanaPrincipal(QMainWindow):
@@ -47,9 +48,21 @@ class VentanaPrincipal(QMainWindow):
         self.res_sintactico = QTreeWidget()
         self.res_sintactico.setHeaderLabel("Árbol Sintáctico Abstracto (AST)")
 
-        self.res_semantico = QTextEdit()
+        # Pestaña Semántico -> QTreeWidget para el Árbol Sintáctico Anotado
+        self.res_semantico = QTreeWidget()
+        self.res_semantico.setHeaderLabel("Árbol Sintáctico Anotado (AST + Semántica)")
+
         self.res_intermedio = QTextEdit()
-        self.tabla_simbolos = QTextEdit()
+
+        # Pestaña Tabla de Símbolos -> QTableWidget estructurado
+        self.tabla_simbolos = QTableWidget()
+        self.tabla_simbolos.setColumnCount(4)
+        self.tabla_simbolos.setHorizontalHeaderLabels([
+            "Identificador", "Tipo de Dato", "Líneas de Aparición", "Offset / Desplazamiento (Bytes)"
+        ])
+        self.tabla_simbolos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla_simbolos.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabla_simbolos.verticalHeader().setVisible(False)
 
 # INFERIOR
 
@@ -60,14 +73,14 @@ class VentanaPrincipal(QMainWindow):
 
 # CONFIG TEXTO
 
-        fuente = QFont("Consolas",10)
+        fuente = QFont("Consolas", 10)
         self.res_lexico.setFont(fuente)
         self.res_sintactico.setFont(fuente)
+        self.res_semantico.setFont(fuente)
+        self.tabla_simbolos.setFont(fuente)
 
         for panel in [
-            self.res_semantico,
             self.res_intermedio,
-            self.tabla_simbolos,
             self.consola_errores,
             self.salida_ejecucion
         ]:
@@ -368,6 +381,95 @@ class VentanaPrincipal(QMainWindow):
 
         # Cambiamos automáticamente a la pestaña del Sintáctico
         self.tabs_analisis.setCurrentIndex(1)
+        return arbol, errores_sintacticos, errores_lexicos
+
+# 🔥 ANALISIS SEMANTICO
+
+    def analisis_semantico(self):
+        # 1. Ejecutar análisis sintáctico previo para validar y obtener AST
+        resultado_sintactico = self.analisis_sintactico()
+        if not resultado_sintactico:
+            return
+
+        arbol, errores_sintacticos, errores_lexicos = resultado_sintactico
+        if not arbol:
+            return
+
+        # 2. Ejecutar analizador semántico sobre el AST
+        analyzer = SemanticAnalyzer()
+        ast_anotado, tabla, errores_semanticos = analyzer.analizar(arbol)
+
+        # 3. Limpiar y dibujar Árbol Sintáctico Anotado en QTreeWidget
+        self.res_semantico.clear()
+
+        def construir_arbol_anotado(nodo, item_padre):
+            for hijo in nodo.hijos:
+                texto = hijo.nombre
+                etiquetas = []
+                if hijo.tipo_dato:
+                    if hijo.tipo_dato == "ERROR_TYPE":
+                        etiquetas.append("Tipo: [ERROR]")
+                    else:
+                        etiquetas.append(f"Tipo: {hijo.tipo_dato}")
+                if hijo.valor_constante is not None:
+                    etiquetas.append(f"Valor: {hijo.valor_constante}")
+
+                if etiquetas:
+                    texto += f"  -->  [{', '.join(etiquetas)}]"
+
+                hijo_item = QTreeWidgetItem([texto])
+                item_padre.addChild(hijo_item)
+                construir_arbol_anotado(hijo, hijo_item)
+
+        if ast_anotado:
+            texto_raiz = ast_anotado.nombre
+            if ast_anotado.tipo_dato:
+                texto_raiz += f"  -->  [Tipo: {ast_anotado.tipo_dato}]"
+            raiz_item = QTreeWidgetItem([texto_raiz])
+            self.res_semantico.addTopLevelItem(raiz_item)
+            construir_arbol_anotado(ast_anotado, raiz_item)
+            self.res_semantico.expandAll()
+
+        # 4. Actualizar Tabla de Símbolos en QTableWidget
+        simbolos = tabla.obtener_simbolos()
+        self.tabla_simbolos.setRowCount(0)
+        self.tabla_simbolos.setRowCount(len(simbolos))
+        for row, s in enumerate(simbolos):
+            self.tabla_simbolos.setItem(row, 0, QTableWidgetItem(s.nombre))
+            self.tabla_simbolos.setItem(row, 1, QTableWidgetItem(s.tipo))
+            self.tabla_simbolos.setItem(row, 2, QTableWidgetItem(s.lineas_str()))
+            self.tabla_simbolos.setItem(row, 3, QTableWidgetItem(f"{s.offset} B"))
+
+        # 5. Consolidar y categorizar errores en la consola
+        secciones_errores = []
+        if errores_lexicos:
+            secciones_errores.append("=== ERRORES LÉXICOS ===")
+            for val, lin, col in errores_lexicos:
+                secciones_errores.append(f"Error Léxico: '{val}' no reconocido en línea {lin}, columna {col}")
+
+        if errores_sintacticos:
+            if secciones_errores:
+                secciones_errores.append("")
+            secciones_errores.append("=== ERRORES SINTÁCTICOS ===")
+            for msg, lin, col in errores_sintacticos:
+                secciones_errores.append(f"{msg} en línea {lin}, columna {col}")
+
+        if errores_semanticos:
+            if secciones_errores:
+                secciones_errores.append("")
+            secciones_errores.append("=== ERRORES SEMÁNTICOS ===")
+            for msg, lin, col in errores_semanticos:
+                secciones_errores.append(f"Error Semántico: {msg} en línea {lin}, columna {col}")
+
+        if secciones_errores:
+            self.consola_errores.setPlainText("\n".join(secciones_errores))
+            self.statusBar().showMessage(f"Análisis Semántico finalizado con {len(errores_semanticos)} error(es) semántico(s).", 5000)
+        else:
+            self.consola_errores.setPlainText("¡Compilación exitosa! Estructura y semántica validadas al 100% (0 errores).")
+            self.statusBar().showMessage("Análisis Semántico completado con éxito. ¡0 errores!", 5000)
+
+        # Cambiamos automáticamente a la pestaña de Semántico
+        self.tabs_analisis.setCurrentIndex(2)
 
 
 # MENUS
@@ -489,6 +591,8 @@ class VentanaPrincipal(QMainWindow):
                     accion.triggered.connect(self.analisis_lexico)
                 elif f["nombre"] == "Sintáctico":
                     accion.triggered.connect(self.analisis_sintactico)
+                elif f["nombre"] == "Semántico":
+                    accion.triggered.connect(self.analisis_semantico)
 
                 objeto.addAction(accion)
 

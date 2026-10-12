@@ -48,6 +48,7 @@ class Highlighter(QSyntaxHighlighter):
 
         self.formats = {
             "RESERVADA": fmt("#569CD6"),
+            "BOOL": fmt("#569CD6"),
             "ID": fmt("#9CDCFE"),
             "NUM": fmt("#B5CEA8"),
             "SIMBOLO": fmt("#D4D4D4"),

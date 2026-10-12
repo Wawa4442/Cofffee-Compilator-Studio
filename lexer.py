@@ -20,7 +20,7 @@ class Lexer:
         self.reservadas = {
             "if", "then", "else", "end", "do", "while", "until",
             "switch", "case", "int", "float", "bool", "real",
-            "main", "cin", "cout"
+            "main", "cin", "cout", "true", "false"
         }
 
     def analizar(self, is_cancelled=None):
@@ -115,7 +115,9 @@ class Lexer:
 
                 palabra = self.codigo[inicio:i]
 
-                if palabra in self.reservadas:
+                if palabra in ["true", "false"]:
+                    tokens.append(Token("BOOL", palabra, self.linea, col))
+                elif palabra in self.reservadas:
                     tokens.append(Token("RESERVADA", palabra, self.linea, col))
                 else:
                     tokens.append(Token("ID", palabra, self.linea, col))
