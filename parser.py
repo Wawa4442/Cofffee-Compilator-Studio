@@ -12,7 +12,6 @@ class NodoAST:
         self.valor_constante = valor_constante  # Atributo sintetizado: valor evaluado en tiempo de compilación
         self.dtype = None                   # Atributo heredado (para declaraciones de variables)
         self.operador = None                # Operador ('+', '-', '>', '==', etc.)
-        self.conversion = None              # Conversión semántica aplicada (si existe)
 
     def agregar_hijo(self, hijo):
         if hijo:
@@ -30,7 +29,6 @@ class NodoAST:
         )
         nuevo.dtype = self.dtype
         nuevo.operador = self.operador
-        nuevo.conversion = self.conversion
         for h in self.hijos:
             nuevo.agregar_hijo(h.clonar())
         return nuevo
@@ -118,11 +116,6 @@ class Parser:
             nodo_programa.agregar_hijo(self.parse_lista_declaracion(["}"]))
 
             self.coincidir("SIMBOLO", "}")
-            if self.token_actual:
-                self.errores.append((
-                    "Error Sintáctico: Código adicional después del cierre de main",
-                    self.token_actual.linea, self.token_actual.columna
-                ))
         else:
             self.errores.append(("Error Sintáctico: Todo programa debe iniciar con 'main {'", 1, 1))
             self.sincronizar()
@@ -133,11 +126,10 @@ class Parser:
         nodo = NodoAST("Bloque_Sentencias")
         # El bloque lee sentencias MIENTRAS el token no sea uno de los terminadores indicados
         while self.token_actual and self.token_actual.valor not in terminadores_esperados:
-            posicion_anterior = self.pos
             nodo_decl = self.parse_declaracion()
             if nodo_decl:
                 nodo.agregar_hijo(nodo_decl)
-            if self.pos == posicion_anterior:
+            else:
                 self.avanzar()
         return nodo
 
@@ -158,15 +150,14 @@ class Parser:
         col = tipo_token.columna if tipo_token else None
         nodo = NodoAST("Declaracion_Variable", linea=linea, columna=col, token=tipo_token)
         self.avanzar()
-        nodo_tipo = NodoAST(f"Tipo: {tipo_token.valor}", linea=linea, columna=col, token=tipo_token)
+        nodo_tipo = NodoAST(f"Tipo: {tipo_token.valor}", linea=linea, columna=col, token=tipo_token, tipo_dato=tipo_token.valor)
         nodo.agregar_hijo(nodo_tipo)
 
-        while True:
-            tok_id = self.coincidir("ID")
-            if not tok_id:
-                return nodo
+        while self.token_actual and self.token_actual.tipo == "ID":
+            tok_id = self.token_actual
             nodo_id = NodoAST(f"ID: {tok_id.valor}", linea=tok_id.linea, columna=tok_id.columna, token=tok_id)
             nodo.agregar_hijo(nodo_id)
+            self.avanzar()
 
             if self.token_actual and self.token_actual.valor == ",":
                 self.avanzar()
@@ -361,7 +352,6 @@ class Parser:
             nodo.agregar_hijo(NodoAST(f"ID Destino: {id_token.valor}", linea=linea, columna=col, token=id_token))
 
         if self.token_actual and self.token_actual.valor in ["++", "--"]:
-            nodo.nombre = "Incremento_Decremento"
             op_token = self.token_actual
             self.avanzar()
             nodo_unario = NodoAST(f"Operador Unario: {op_token.valor}", linea=op_token.linea, columna=op_token.columna, token=op_token)
@@ -371,7 +361,6 @@ class Parser:
                 self.avanzar()
             return nodo
 
-        nodo.nombre = "Asignacion"
         self.coincidir("SIMBOLO", "=")
         nodo.agregar_hijo(self.parse_expresion())
         self.coincidir("SIMBOLO", ";")
@@ -455,7 +444,6 @@ class Parser:
 
     def parse_componente(self):
         if not self.token_actual:
-            self.errores.append(("Error Sintáctico: Se esperaba una expresión, se encontró EOF", "N/A", "N/A"))
             return NodoAST("Error_Componente_Vacio")
 
         token = self.token_actual
@@ -467,6 +455,25 @@ class Parser:
             return nodo
         elif token.tipo in ["ID", "NUM", "STRING", "BOOL"] or (token.tipo == "RESERVADA" and token.valor in ["true", "false"]):
             nodo = NodoAST(f"Valor ({token.tipo}): {token.valor}", linea=token.linea, columna=token.columna, token=token)
+            if token.tipo == "BOOL" or token.valor in ["true", "false"]:
+                nodo.tipo_dato = "bool"
+                nodo.valor_constante = (token.valor == "true")
+            elif token.tipo == "NUM":
+                if "." in token.valor:
+                    nodo.tipo_dato = "float"
+                    try:
+                        nodo.valor_constante = float(token.valor)
+                    except ValueError:
+                        pass
+                else:
+                    nodo.tipo_dato = "int"
+                    try:
+                        nodo.valor_constante = int(token.valor)
+                    except ValueError:
+                        pass
+            elif token.tipo == "STRING":
+                nodo.tipo_dato = "string"
+                nodo.valor_constante = token.valor
             self.avanzar()
             return nodo
         else:

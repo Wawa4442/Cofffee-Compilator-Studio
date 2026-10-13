@@ -40,7 +40,6 @@ class SemanticAnalyzer:
         """
         self.tabla.limpiar()
         self.errores.clear()
-        self.ast_anotado = None
 
         if not ast_original:
             return None, self.tabla, []
@@ -78,14 +77,14 @@ class SemanticAnalyzer:
             for hijo in nodo.hijos:
                 self.visitar(hijo)
 
-        elif nombre in ("Declaracion", "Sentencia"):
+        elif nombre == "Declaracion":
             for hijo in nodo.hijos:
                 self.visitar(hijo)
 
         elif nombre == "Declaracion_Variable":
             self.visitar_declaracion_variable(nodo)
 
-        elif nombre in ("Asignacion_u_Operacion", "Asignacion", "Incremento_Decremento"):
+        elif nombre == "Asignacion_u_Operacion":
             self.visitar_asignacion(nodo)
 
         elif nombre == "Sentencia_If":
@@ -137,7 +136,6 @@ class SemanticAnalyzer:
         if tipo_declarado == "real":
             tipo_declarado = "float"
 
-        primer_hijo.tipo_dato = tipo_declarado
         nodo.tipo_dato = tipo_declarado
         nodo.dtype = tipo_declarado
 
@@ -156,65 +154,96 @@ class SemanticAnalyzer:
                 )
                 if not exito:
                     self.reportar_error(resultado, hijo.linea, hijo.columna)
-                    self.tabla.registrar_uso(nombre_id, hijo.linea)
-                    hijo.tipo_dato = "ERROR_TYPE"
-                    nodo.tipo_dato = "ERROR_TYPE"
 
     # =========================================================================
     # ASIGNACIONES Y OPERADORES UNARIOS
     # =========================================================================
 
-    def anotar(self, nodo, tipo, valor=None):
-        """Un nodo inválido nunca conserva un valor constante ni una conversión."""
-        nodo.tipo_dato = tipo
-        nodo.valor_constante = valor if tipo != "ERROR_TYPE" else None
-        if tipo == "ERROR_TYPE":
-            nodo.conversion = None
-        return nodo.tipo_dato, nodo.valor_constante
-
     def visitar_asignacion(self, nodo):
+        """
+        Procesa asignaciones ('x = exp;') y operaciones unarias ('a++;').
+        Valida que el identificador esté declarado y comprueba la compatibilidad
+        de tipos entre la variable destino y la expresión origen.
+        """
         if not nodo.hijos:
             return
+
+        # Primer hijo: 'ID Destino: <nombre>'
         hijo_id = nodo.hijos[0]
-        nombre_id = hijo_id.nombre.split(":", 1)[1].strip()
+        nombre_id = hijo_id.nombre.split(":", 1)[1].strip() if ":" in hijo_id.nombre else hijo_id.nombre
+
+        # Búsqueda en la Tabla de Símbolos
         simbolo = self.tabla.buscar(nombre_id)
-        tipo_var = simbolo.tipo if simbolo else "ERROR_TYPE"
-        if simbolo:
-            self.tabla.registrar_uso(nombre_id, hijo_id.linea)
-        else:
-            self.reportar_error(f"Variable '{nombre_id}' no declarada",
-                                hijo_id.linea, hijo_id.columna)
-        self.anotar(hijo_id, tipo_var)
-
-        if len(nodo.hijos) < 2:
-            self.anotar(nodo, "ERROR_TYPE")
-            return
-        expresion = nodo.hijos[1]
-        if expresion.nombre.startswith("Operador Unario:"):
-            if tipo_var != "ERROR_TYPE" and tipo_var not in ("int", "float"):
-                self.reportar_error(
-                    f"Operador unario '{expresion.operador}' no permitido para variable de tipo '{tipo_var}'",
-                    expresion.linea, expresion.columna)
-                tipo_var = "ERROR_TYPE"
-            self.anotar(expresion, tipo_var)
-            self.anotar(nodo, tipo_var)
-            return
-
-        # Evaluar siempre el origen, incluso si el destino no existe.
-        tipo_exp, valor = self.evaluar_expresion(expresion)
-        if "ERROR_TYPE" in (tipo_var, tipo_exp):
-            self.anotar(nodo, "ERROR_TYPE")
-            return
-        if tipo_var == tipo_exp:
-            self.anotar(nodo, tipo_var, valor)
-        elif tipo_var == "float" and tipo_exp == "int":
-            nodo.conversion = "int -> float (asignación)"
-            self.anotar(nodo, "float", float(valor) if valor is not None else None)
-        else:
+        if not simbolo:
             self.reportar_error(
-                f"Incompatibilidad de tipos en asignación: no se puede asignar '{tipo_exp}' a la variable '{nombre_id}' de tipo '{tipo_var}'",
-                hijo_id.linea, hijo_id.columna)
-            self.anotar(nodo, "ERROR_TYPE")
+                f"Variable '{nombre_id}' no declarada",
+                hijo_id.linea or nodo.linea,
+                hijo_id.columna or nodo.columna
+            )
+            tipo_var = "ERROR_TYPE"
+        else:
+            tipo_var = simbolo.tipo
+            self.tabla.registrar_uso(nombre_id, hijo_id.linea or nodo.linea)
+
+        hijo_id.tipo_dato = tipo_var
+
+        # Caso 1: Operador unario (++ o --)
+        if len(nodo.hijos) > 1 and "Operador Unario:" in nodo.hijos[1].nombre:
+            nodo_op = nodo.hijos[1]
+            op = nodo_op.nombre.split(":", 1)[1].strip()
+            nodo_op.tipo_dato = tipo_var
+            nodo.tipo_dato = tipo_var
+
+            if tipo_var != "ERROR_TYPE" and tipo_var not in ["int", "float", "real"]:
+                self.reportar_error(
+                    f"Operador unario '{op}' no permitido para variable de tipo '{tipo_var}'",
+                    nodo_op.linea or nodo.linea,
+                    nodo_op.columna or nodo.columna
+                )
+            return
+
+        # Caso 2: Asignación ordinaria ('=')
+        if len(nodo.hijos) > 1:
+            nodo_exp = nodo.hijos[1]
+            tipo_exp, val_exp = self.evaluar_expresion(nodo_exp)
+
+            es_compatible = True
+
+            # Verificación de compatibilidad de tipos
+            if tipo_var == "ERROR_TYPE" or tipo_exp == "ERROR_TYPE":
+                es_compatible = False
+            elif tipo_var == "int" and tipo_exp == "float":
+                # Error crítico: asignación de flotante a entero con pérdida de precisión
+                self.reportar_error(
+                    f"Incompatibilidad de tipos en asignación: no se puede asignar un valor 'float' a la variable entera '{nombre_id}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+            elif tipo_var == "bool" and tipo_exp != "bool":
+                self.reportar_error(
+                    f"Incompatibilidad de tipos en asignación: se esperaba expresión booleana para '{nombre_id}', pero se obtuvo '{tipo_exp}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+            elif tipo_var in ["float", "real"] and tipo_exp == "int":
+                # Promoción implícita válida: int -> float
+                es_compatible = True
+            elif tipo_var != tipo_exp:
+                self.reportar_error(
+                    f"Incompatibilidad de tipos: no se puede asignar '{tipo_exp}' a variable '{nombre_id}' de tipo '{tipo_var}'",
+                    hijo_id.linea or nodo.linea,
+                    hijo_id.columna or nodo.columna
+                )
+                es_compatible = False
+
+            if es_compatible:
+                nodo.tipo_dato = tipo_var
+                nodo.valor_constante = val_exp
+            else:
+                nodo.tipo_dato = "ERROR_TYPE"
+                nodo.valor_constante = None
 
     # =========================================================================
     # ESTRUCTURAS DE CONTROL (IF, WHILE, DO-UNTIL)
@@ -228,8 +257,6 @@ class SemanticAnalyzer:
         # Primer hijo: Condición
         nodo_cond = nodo.hijos[0]
         tipo_cond, val_cond = self.evaluar_expresion(nodo_cond)
-        if tipo_cond != "bool":
-            self.anotar(nodo, "ERROR_TYPE")
 
         if tipo_cond != "ERROR_TYPE" and tipo_cond != "bool":
             self.reportar_error(
@@ -249,8 +276,6 @@ class SemanticAnalyzer:
 
         nodo_cond = nodo.hijos[0]
         tipo_cond, val_cond = self.evaluar_expresion(nodo_cond)
-        if tipo_cond != "bool":
-            self.anotar(nodo, "ERROR_TYPE")
 
         if tipo_cond != "ERROR_TYPE" and tipo_cond != "bool":
             self.reportar_error(
@@ -276,8 +301,6 @@ class SemanticAnalyzer:
             else:
                 # Es el nodo de la condición
                 tipo_cond, val_cond = self.evaluar_expresion(hijo)
-                if tipo_cond != "bool":
-                    self.anotar(nodo, "ERROR_TYPE")
                 if tipo_cond != "ERROR_TYPE" and tipo_cond != "bool":
                     self.reportar_error(
                         f"Tipo incorrecto en la condición de cierre de ciclo: se requiere expresión booleana, se obtuvo '{tipo_cond}'",
@@ -320,117 +343,225 @@ class SemanticAnalyzer:
     # =========================================================================
 
     def evaluar_expresion(self, nodo):
-        """Sintetiza tipo y valor, y propaga ERROR_TYPE sin errores en cascada."""
-        if nodo is None:
+        """
+        Evalúa recursivamente un nodo de expresión en el AST.
+        Calcula:
+          - tipo resultante (sintetizado).
+          - valor constante si los operandos son literales (Constant Folding).
+        Anota directamente en el nodo: nodo.tipo_dato y nodo.valor_constante.
+        Retorna: (tipo, valor_constante)
+        """
+        if not nodo:
             return "ERROR_TYPE", None
+
         nombre = nodo.nombre
+
+        # ---------------------------------------------------------------------
+        # 1. VALORES HOJA (LITERALES E IDENTIFICADORES)
+        # ---------------------------------------------------------------------
         if nombre.startswith("Valor ("):
-            lexema = nombre.split(":", 1)[1].strip()
-            if nombre.startswith("Valor (NUM):"):
-                tipo = "float" if "." in lexema else "int"
-                valor = float(lexema) if tipo == "float" else int(lexema)
-                return self.anotar(nodo, tipo, valor)
-            if nombre.startswith("Valor (BOOL):") or lexema in ("true", "false"):
-                return self.anotar(nodo, "bool", lexema == "true")
-            if nombre.startswith("Valor (STRING):"):
-                return self.anotar(nodo, "string", lexema)
-            if nombre.startswith("Valor (ID):"):
-                simbolo = self.tabla.buscar(lexema)
-                if simbolo is None:
-                    self.reportar_error(f"Variable '{lexema}' no declarada", nodo.linea, nodo.columna)
-                    return self.anotar(nodo, "ERROR_TYPE")
-                self.tabla.registrar_uso(lexema, nodo.linea)
-                return self.anotar(nodo, simbolo.tipo)
+            if "Valor (NUM):" in nombre:
+                val_str = nombre.split(":", 1)[1].strip()
+                if "." in val_str:
+                    tipo = "float"
+                    val = float(val_str)
+                else:
+                    tipo = "int"
+                    val = int(val_str)
+                nodo.tipo_dato = tipo
+                nodo.valor_constante = val
+                return tipo, val
 
-        logico = nombre.startswith("Operador Logico:")
-        relacional = nombre.startswith("Operador Relacional:")
-        aritmetico = nombre.startswith(("Operador Suma/Resta:", "Operador Mult/Div:", "Operador Potencia:"))
-        if logico or relacional or aritmetico:
-            if len(nodo.hijos) != 2:
-                return self.anotar(nodo, "ERROR_TYPE")
-            op = nombre.split(":", 1)[1].strip()
-            t1, v1 = self.evaluar_expresion(nodo.hijos[0])
-            t2, v2 = self.evaluar_expresion(nodo.hijos[1])
-            numericos = ("int", "float")
+            elif "Valor (BOOL):" in nombre or "Valor (RESERVADA):" in nombre:
+                val_str = nombre.split(":", 1)[1].strip()
+                if val_str in ["true", "false"]:
+                    tipo = "bool"
+                    val = (val_str == "true")
+                    nodo.tipo_dato = tipo
+                    nodo.valor_constante = val
+                    return tipo, val
 
-            if logico:
-                for hijo, tipo in zip(nodo.hijos, (t1, t2)):
-                    if tipo not in ("bool", "ERROR_TYPE"):
-                        self.reportar_error(
-                            f"El operando de '{op}' debe ser booleano, se obtuvo '{tipo}'",
-                            hijo.linea, hijo.columna)
-                if t1 != "bool" or t2 != "bool":
-                    return self.anotar(nodo, "ERROR_TYPE")
-                valor = None
-                if v1 is not None and v2 is not None:
-                    valor = (v1 and v2) if op == "&&" else (v1 or v2)
-                return self.anotar(nodo, "bool", valor)
+            elif "Valor (STRING):" in nombre:
+                val_str = nombre.split(":", 1)[1].strip()
+                nodo.tipo_dato = "string"
+                nodo.valor_constante = val_str
+                return "string", val_str
 
-            if "ERROR_TYPE" in (t1, t2):
-                return self.anotar(nodo, "ERROR_TYPE")
-            if relacional:
-                # Orden: numéricos. Igualdad: numéricos o dos booleanos.
-                valido = t1 in numericos and t2 in numericos
-                if op in ("==", "!="):
-                    valido = valido or t1 == t2 == "bool"
-                if not valido:
+            elif "Valor (ID):" in nombre:
+                nombre_id = nombre.split(":", 1)[1].strip()
+                simbolo = self.tabla.buscar(nombre_id)
+                if not simbolo:
                     self.reportar_error(
-                        f"No se pueden comparar tipos '{t1}' y '{t2}' con el operador '{op}'",
-                        nodo.linea, nodo.columna)
-                    return self.anotar(nodo, "ERROR_TYPE")
-                if t1 != t2:
-                    nodo.conversion = "int -> float (comparación)"
-                    if v1 is not None: v1 = float(v1)
-                    if v2 is not None: v2 = float(v2)
-                valor = None
+                        f"Variable '{nombre_id}' no declarada",
+                        nodo.linea,
+                        nodo.columna
+                    )
+                    nodo.tipo_dato = "ERROR_TYPE"
+                    return "ERROR_TYPE", None
+                else:
+                    self.tabla.registrar_uso(nombre_id, nodo.linea)
+                    nodo.tipo_dato = simbolo.tipo
+                    nodo.valor_constante = None  # Variable dinámica
+                    return simbolo.tipo, None
+
+        # ---------------------------------------------------------------------
+        # 2. OPERADORES LÓGICOS (&&, ||)
+        # ---------------------------------------------------------------------
+        if nombre.startswith("Operador Logico:"):
+            op = nombre.split(":", 1)[1].strip()
+            if len(nodo.hijos) == 2:
+                t1, v1 = self.evaluar_expresion(nodo.hijos[0])
+                t2, v2 = self.evaluar_expresion(nodo.hijos[1])
+
+                if t1 != "ERROR_TYPE" and t1 != "bool":
+                    self.reportar_error(
+                        f"El operando izquierdo de '{op}' debe ser booleano, se obtuvo '{t1}'",
+                        nodo.hijos[0].linea or nodo.linea,
+                        nodo.hijos[0].columna or nodo.columna
+                    )
+                if t2 != "ERROR_TYPE" and t2 != "bool":
+                    self.reportar_error(
+                        f"El operando derecho de '{op}' debe ser booleano, se obtuvo '{t2}'",
+                        nodo.hijos[1].linea or nodo.linea,
+                        nodo.hijos[1].columna or nodo.columna
+                    )
+
+                nodo.tipo_dato = "bool"
                 if v1 is not None and v2 is not None:
-                    if op == "<": valor = v1 < v2
-                    elif op == "<=": valor = v1 <= v2
-                    elif op == ">": valor = v1 > v2
-                    elif op == ">=": valor = v1 >= v2
-                    elif op == "==": valor = v1 == v2
-                    elif op == "!=": valor = v1 != v2
-                return self.anotar(nodo, "bool", valor)
+                    if op == "&&":
+                        nodo.valor_constante = bool(v1 and v2)
+                    elif op == "||":
+                        nodo.valor_constante = bool(v1 or v2)
+                return "bool", nodo.valor_constante
 
-            if t1 not in numericos or t2 not in numericos:
-                self.reportar_error(
-                    f"Uso indebido del operador aritmético '{op}' con operandos de tipo '{t1}' y '{t2}'",
-                    nodo.linea, nodo.columna)
-                return self.anotar(nodo, "ERROR_TYPE")
-            if op == "%" and (t1 != "int" or t2 != "int"):
-                self.reportar_error("El operador módulo '%' requiere operandos enteros", nodo.linea, nodo.columna)
-                return self.anotar(nodo, "ERROR_TYPE")
-            if op in ("/", "%") and v2 == 0:
-                self.reportar_error("División o módulo entre cero en tiempo de compilación", nodo.linea, nodo.columna)
-                return self.anotar(nodo, "ERROR_TYPE")
+        # ---------------------------------------------------------------------
+        # 3. OPERADORES RELACIONALES (<, <=, >, >=, ==, !=)
+        # ---------------------------------------------------------------------
+        if nombre.startswith("Operador Relacional:"):
+            op = nombre.split(":", 1)[1].strip()
+            if len(nodo.hijos) == 2:
+                t1, v1 = self.evaluar_expresion(nodo.hijos[0])
+                t2, v2 = self.evaluar_expresion(nodo.hijos[1])
 
-            tipo = "float" if "float" in (t1, t2) else "int"
-            if t1 != t2:
-                nodo.conversion = "int -> float (operando aritmético)"
-                if v1 is not None: v1 = float(v1)
-                if v2 is not None: v2 = float(v2)
-            if op == "^" and tipo == "int" and (v2 is None or v2 < 0):
-                tipo = "float"
-                nodo.conversion = "int -> float (potencia con exponente negativo o desconocido)"
-            valor = None
-            if v1 is not None and v2 is not None:
-                try:
-                    if op == "+": valor = v1 + v2
-                    elif op == "-": valor = v1 - v2
-                    elif op == "*": valor = v1 * v2
-                    elif op == "/": valor = v1 // v2 if tipo == "int" else v1 / v2
-                    elif op == "%": valor = v1 % v2
-                    elif op == "^": valor = v1 ** v2
-                    if isinstance(valor, complex):
-                        self.reportar_error("La potencia produce un valor complejo, fuera de int/float", nodo.linea, nodo.columna)
-                        return self.anotar(nodo, "ERROR_TYPE")
-                    valor = float(valor) if tipo == "float" else int(valor)
-                except (ArithmeticError, ValueError) as exc:
-                    self.reportar_error(f"No se puede evaluar la expresión constante: {exc}", nodo.linea, nodo.columna)
-                    return self.anotar(nodo, "ERROR_TYPE")
-            return self.anotar(nodo, tipo, valor)
+                nodo.tipo_dato = "bool"
 
+                # Validación de tipos en comparación
+                if t1 != "ERROR_TYPE" and t2 != "ERROR_TYPE":
+                    es_num1 = t1 in ["int", "float", "real"]
+                    es_num2 = t2 in ["int", "float", "real"]
+
+                    if es_num1 != es_num2:
+                        self.reportar_error(
+                            f"No se pueden comparar tipos incompatibles '{t1}' y '{t2}' con el operador '{op}'",
+                            nodo.linea,
+                            nodo.columna
+                        )
+
+                # Constant folding para comparaciones relacionales
+                if v1 is not None and v2 is not None:
+                    try:
+                        if op == "<": nodo.valor_constante = bool(v1 < v2)
+                        elif op == "<=": nodo.valor_constante = bool(v1 <= v2)
+                        elif op == ">": nodo.valor_constante = bool(v1 > v2)
+                        elif op == ">=": nodo.valor_constante = bool(v1 >= v2)
+                        elif op == "==": nodo.valor_constante = bool(v1 == v2)
+                        elif op == "!=": nodo.valor_constante = bool(v1 != v2)
+                    except Exception:
+                        nodo.valor_constante = None
+
+                return "bool", nodo.valor_constante
+
+        # ---------------------------------------------------------------------
+        # 4. OPERADORES ARITMÉTICOS (+, -, *, /, %, ^)
+        # ---------------------------------------------------------------------
+        if (nombre.startswith("Operador Suma/Resta:") or
+            nombre.startswith("Operador Mult/Div:") or
+            nombre.startswith("Operador Potencia:")):
+
+            op = nombre.split(":", 1)[1].strip()
+            if len(nodo.hijos) == 2:
+                t1, v1 = self.evaluar_expresion(nodo.hijos[0])
+                t2, v2 = self.evaluar_expresion(nodo.hijos[1])
+
+                if t1 == "ERROR_TYPE" or t2 == "ERROR_TYPE":
+                    nodo.tipo_dato = "ERROR_TYPE"
+                    return "ERROR_TYPE", None
+
+                # Verificamos que ambos sean numéricos
+                es_num1 = t1 in ["int", "float", "real"]
+                es_num2 = t2 in ["int", "float", "real"]
+
+                if not es_num1 or not es_num2:
+                    self.reportar_error(
+                        f"Uso indebido del operador aritmético '{op}' con operandos de tipo '{t1}' y '{t2}'",
+                        nodo.linea,
+                        nodo.columna
+                    )
+                    nodo.tipo_dato = "ERROR_TYPE"
+                    return "ERROR_TYPE", None
+
+                # Regla de Módulo (%)
+                if op == "%" and (t1 != "int" or t2 != "int"):
+                    self.reportar_error(
+                        f"El operador módulo '%' requiere operandos enteros, se encontró '{t1}' y '{t2}'",
+                        nodo.linea,
+                        nodo.columna
+                    )
+
+                # Tipo resultante con promoción int -> float
+                if t1 in ["float", "real"] or t2 in ["float", "real"]:
+                    tipo_resultante = "float"
+                else:
+                    tipo_resultante = "int"
+
+                nodo.tipo_dato = tipo_resultante
+
+                # Constant Folding (evaluación estática)
+                if v1 is not None and v2 is not None:
+                    try:
+                        if op == "+":
+                            res = v1 + v2
+                        elif op == "-":
+                            res = v1 - v2
+                        elif op == "*":
+                            res = v1 * v2
+                        elif op == "/":
+                            if v2 == 0:
+                                self.reportar_error("División entre cero en tiempo de compilación", nodo.linea, nodo.columna)
+                                res = None
+                            else:
+                                if tipo_resultante == "int":
+                                    res = int(v1 // v2)
+                                else:
+                                    res = float(v1) / float(v2)
+                        elif op == "%":
+                            if v2 == 0:
+                                self.reportar_error("Módulo con divisor cero en tiempo de compilación", nodo.linea, nodo.columna)
+                                res = None
+                            else:
+                                res = int(v1) % int(v2)
+                        elif op == "^":
+                            res = v1 ** v2
+                        else:
+                            res = None
+
+                        if res is not None:
+                            if tipo_resultante == "float":
+                                res = float(res)
+                            elif tipo_resultante == "int":
+                                res = int(res)
+
+                        nodo.valor_constante = res
+                    except Exception:
+                        nodo.valor_constante = None
+
+                return tipo_resultante, nodo.valor_constante
+
+        # Si no coincide con ninguno, evaluamos el primer hijo (ej. paréntesis u otros nodos)
         if nodo.hijos:
-            tipo, valor = self.evaluar_expresion(nodo.hijos[0])
-            return self.anotar(nodo, tipo, valor)
-        return self.anotar(nodo, "ERROR_TYPE")
+            t, v = self.evaluar_expresion(nodo.hijos[0])
+            nodo.tipo_dato = t
+            nodo.valor_constante = v
+            return t, v
+
+        return "ERROR_TYPE", None

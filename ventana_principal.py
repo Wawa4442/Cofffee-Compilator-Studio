@@ -58,10 +58,9 @@ class VentanaPrincipal(QMainWindow):
         self.tabla_simbolos = QTableWidget()
         self.tabla_simbolos.setColumnCount(4)
         self.tabla_simbolos.setHorizontalHeaderLabels([
-            "Identificador", "Tipo", "Líneas", "Offset (bytes)"
+            "Identificador", "Tipo de Dato", "Líneas de Aparición", "Offset / Desplazamiento (Bytes)"
         ])
-        self.tabla_simbolos.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.tabla_simbolos.horizontalHeader().setStretchLastSection(True)
+        self.tabla_simbolos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla_simbolos.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabla_simbolos.verticalHeader().setVisible(False)
 
@@ -110,9 +109,7 @@ class VentanaPrincipal(QMainWindow):
         splitterH.addWidget(self.tabs_editor)
         splitterH.addWidget(splitterV)
 
-        splitterH.setStretchFactor(0,1)
-        splitterH.setStretchFactor(1,1)
-        splitterH.setSizes([600, 600])
+        splitterH.setStretchFactor(0,3)
 
         self.setCentralWidget(splitterH)
 
@@ -122,8 +119,6 @@ class VentanaPrincipal(QMainWindow):
 
         self.setStatusBar(QStatusBar())
 
-        self.tabs_editor.currentChanged.connect(self.invalidar_resultados)
-        self.invalidar_resultados()
         self.nuevo_archivo()
 
 # NUEVO
@@ -133,7 +128,6 @@ class VentanaPrincipal(QMainWindow):
         editor = EditorCodigo()
         editor.ruta_archivo = None
         editor.textChanged.connect(self.marcar_modificado)
-        editor.textChanged.connect(self.invalidar_resultados)
         editor.cursorPositionChanged.connect(self.actualizar_estado)
         i = self.tabs_editor.addTab(editor,"Sin titulo.ccs")
         self.tabs_editor.setCurrentIndex(i)
@@ -170,7 +164,6 @@ class VentanaPrincipal(QMainWindow):
         editor.setPlainText(texto)
         editor.ruta_archivo = nombre
         editor.textChanged.connect(self.marcar_modificado)
-        editor.textChanged.connect(self.invalidar_resultados)
         editor.cursorPositionChanged.connect(self.actualizar_estado)
 
         i = self.tabs_editor.addTab(
@@ -298,22 +291,8 @@ class VentanaPrincipal(QMainWindow):
 
 # 🔥 ANALISIS LEXICO
 
-    def invalidar_resultados(self, *_):
-        self.res_lexico.setRowCount(0)
-        self.res_sintactico.clear()
-        self.res_semantico.clear()
-        self.tabla_simbolos.setRowCount(0)
-        self.consola_errores.clear()
-        self.ast_original = None
-        self.ast_anotado = None
-        self.tabla_resultado = None
-        self.errores_lexicos = []
-        self.errores_sintacticos = []
-        self.errores_semanticos = []
-
     def analisis_lexico(self):
 
-        self.invalidar_resultados()
         editor = self.obtener_editor_actual()
         if not editor:
             return
@@ -321,7 +300,6 @@ class VentanaPrincipal(QMainWindow):
         codigo = editor.toPlainText()
         lexer = Lexer(codigo)
         tokens, errores = lexer.analizar()
-        self.errores_lexicos = list(errores)
 
         tokens_validos = [t for t in tokens if t.tipo != "COMENTARIO"]
 
@@ -366,8 +344,6 @@ class VentanaPrincipal(QMainWindow):
         # Iniciamos el parser
         parser = Parser(tokens)
         arbol, errores_sintacticos = parser.analizar()
-        self.ast_original = arbol
-        self.errores_sintacticos = list(errores_sintacticos)
 
         # Limpiamos el árbol visual anterior
         self.res_sintactico.clear()
@@ -400,7 +376,7 @@ class VentanaPrincipal(QMainWindow):
 
             self.consola_errores.setPlainText(texto_errores)
             self.statusBar().showMessage("Análisis Sintáctico finalizado con errores (Modo Pánico activado).", 5000)
-        elif not errores_lexicos:
+        else:
             self.statusBar().showMessage("Análisis Sintáctico completado. ¡Estructura validada al 100%!", 5000)
 
         # Cambiamos automáticamente a la pestaña del Sintáctico
@@ -418,18 +394,10 @@ class VentanaPrincipal(QMainWindow):
         arbol, errores_sintacticos, errores_lexicos = resultado_sintactico
         if not arbol:
             return
-        if errores_lexicos or errores_sintacticos:
-            self.statusBar().showMessage(
-                "Análisis semántico pendiente: corrija los errores léxicos y sintácticos.", 5000
-            )
-            return
 
         # 2. Ejecutar analizador semántico sobre el AST
         analyzer = SemanticAnalyzer()
         ast_anotado, tabla, errores_semanticos = analyzer.analizar(arbol)
-        self.ast_anotado = ast_anotado
-        self.tabla_resultado = tabla
-        self.errores_semanticos = list(errores_semanticos)
 
         # 3. Limpiar y dibujar Árbol Sintáctico Anotado en QTreeWidget
         self.res_semantico.clear()
@@ -445,10 +413,6 @@ class VentanaPrincipal(QMainWindow):
                         etiquetas.append(f"Tipo: {hijo.tipo_dato}")
                 if hijo.valor_constante is not None:
                     etiquetas.append(f"Valor: {hijo.valor_constante}")
-                if hijo.dtype:
-                    etiquetas.append(f"dtype: {hijo.dtype}")
-                if hijo.conversion:
-                    etiquetas.append(f"Conversión: {hijo.conversion}")
 
                 if etiquetas:
                     texto += f"  -->  [{', '.join(etiquetas)}]"

@@ -53,15 +53,15 @@ class Lexer:
                 i += 1
                 self.columna += 1
 
-                while i < len(self.codigo) and self.codigo[i] not in ['"', "\n"]:
+                while i < len(self.codigo) and self.codigo[i] != '"':
+                    if self.codigo[i] == "\n":
+                        errores.append(("string sin cerrar", self.linea, col))
+                        break
                     i += 1
                     self.columna += 1
 
-                if i < len(self.codigo) and self.codigo[i] == '"':
-                    i += 1
-                    self.columna += 1
-                else:
-                    errores.append(("string sin cerrar", self.linea, col))
+                i += 1
+                self.columna += 1
 
                 tokens.append(Token("STRING", self.codigo[inicio:i], self.linea, col))
                 continue
