@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QCompleter
 from PySide6.QtCore import Qt, QRect, QSize, QThread, Signal, QTimer
-from PySide6.QtGui import QColor, QPainter, QFont, QTextFormat, QTextCharFormat, QSyntaxHighlighter
+from PySide6.QtGui import QColor, QPainter, QFont, QTextFormat, QTextCharFormat, QSyntaxHighlighter, QTextCursor
 from collections import defaultdict
 
 from lexer import Lexer
@@ -191,16 +191,54 @@ class EditorCodigo(QPlainTextEdit):
 
     def insert_completion(self, completion):
         tc = self.textCursor()
-        tc.select(tc.WordUnderCursor)
+        tc.select(QTextCursor.WordUnderCursor)
         tc.removeSelectedText()
         tc.insertText(completion)
         self.setTextCursor(tc)
 
     def keyPressEvent(self, event):
+        # Auto-indentación inteligente al presionar Enter / Return
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            if self.completer and self.completer.popup() and self.completer.popup().isVisible():
+                self.completer.popup().hide()
+            cursor = self.textCursor()
+            linea_completa = cursor.block().text()
+            pos_cursor = cursor.positionInBlock()
+            texto_antes_cursor = linea_completa[:pos_cursor]
+
+            # 1. Calcular la indentación base de la línea actual
+            indent_len = len(linea_completa) - len(linea_completa.lstrip())
+            indentacion_actual = linea_completa[:indent_len]
+
+            # 2. Comprobar si la línea previa abre bloque ('{', 'then', 'do')
+            texto_limpio = texto_antes_cursor
+            if "//" in texto_limpio:
+                texto_limpio = texto_limpio.split("//", 1)[0]
+            texto_limpio = texto_limpio.rstrip()
+
+            abre_bloque = False
+            if texto_limpio.endswith("{"):
+                abre_bloque = True
+            else:
+                palabras = texto_limpio.split()
+                if palabras and palabras[-1] in ("then", "do", "{"):
+                    abre_bloque = True
+
+            # 3. Definir nueva sangría (añade 4 espacios si abre bloque)
+            if abre_bloque:
+                nueva_indentacion = indentacion_actual + "    "
+            else:
+                nueva_indentacion = indentacion_actual
+
+            # 4. Insertar salto de línea y la indentación calculada
+            super().keyPressEvent(event)
+            self.insertPlainText(nueva_indentacion)
+            return
+
         super().keyPressEvent(event)
 
         cursor = self.textCursor()
-        cursor.select(cursor.WordUnderCursor)
+        cursor.select(QTextCursor.WordUnderCursor)
         palabra = cursor.selectedText()
 
         if len(palabra) >= 1:

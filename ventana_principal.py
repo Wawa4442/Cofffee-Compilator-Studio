@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem  # Agregados para el AST visual
 )
 
-from PySide6.QtGui import QAction, QFont, QIcon
+from PySide6.QtGui import QAction, QFont, QIcon, QColor
 from PySide6.QtCore import Qt, QSize
 
 from editor import EditorCodigo
@@ -54,15 +54,23 @@ class VentanaPrincipal(QMainWindow):
 
         self.res_intermedio = QTextEdit()
 
-        # Pestaña Tabla de Símbolos -> QTableWidget estructurado
+        # Pestaña Tabla de Símbolos -> QTableWidget estructurado y desplazable
         self.tabla_simbolos = QTableWidget()
-        self.tabla_simbolos.setColumnCount(4)
+        self.tabla_simbolos.setColumnCount(5)
         self.tabla_simbolos.setHorizontalHeaderLabels([
-            "Identificador", "Tipo de Dato", "Líneas de Aparición", "Offset / Desplazamiento (Bytes)"
+            "Identificador", "Tipo de Dato", "Líneas de Aparición", "Offset / Desplazamiento (Bytes)", "Estado / Observaciones"
         ])
-        self.tabla_simbolos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        header_simbolos = self.tabla_simbolos.horizontalHeader()
+        header_simbolos.setSectionResizeMode(QHeaderView.Interactive)
+        header_simbolos.setSectionsMovable(True)
+        header_simbolos.setStretchLastSection(False)
         self.tabla_simbolos.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabla_simbolos.verticalHeader().setVisible(False)
+        self.tabla_simbolos.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.tabla_simbolos.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.tabla_simbolos.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
+        self.tabla_simbolos.setVerticalScrollMode(QTableWidget.ScrollPerPixel)
+        self.tabla_simbolos.setWordWrap(False)
 
 # INFERIOR
 
@@ -434,11 +442,52 @@ class VentanaPrincipal(QMainWindow):
         simbolos = tabla.obtener_simbolos()
         self.tabla_simbolos.setRowCount(0)
         self.tabla_simbolos.setRowCount(len(simbolos))
+
+        color_error_bg = QColor(255, 235, 235)      # Fondo rojo/salmón suave para duplicados
+        color_error_txt = QColor(190, 0, 0)         # Texto rojo oscuro
+        color_valido_txt = QColor(0, 130, 0)        # Texto verde oscuro para VÁLIDO
+
         for row, s in enumerate(simbolos):
-            self.tabla_simbolos.setItem(row, 0, QTableWidgetItem(s.nombre))
-            self.tabla_simbolos.setItem(row, 1, QTableWidgetItem(s.tipo))
-            self.tabla_simbolos.setItem(row, 2, QTableWidgetItem(s.lineas_str()))
-            self.tabla_simbolos.setItem(row, 3, QTableWidgetItem(f"{s.offset} B"))
+            item_id = QTableWidgetItem(s.nombre)
+            tipo_texto = s.tipo_display() if hasattr(s, "tipo_display") else s.tipo
+            item_tipo = QTableWidgetItem(tipo_texto)
+            lineas_texto = s.lineas_str()
+            item_lineas = QTableWidgetItem(lineas_texto)
+            offset_texto = s.offset_str() if hasattr(s, "offset_str") else (f"{s.offset} B" if s.offset is not None else "-")
+            item_offset = QTableWidgetItem(offset_texto)
+            estado_texto = getattr(s, "estado", "VÁLIDO")
+            item_estado = QTableWidgetItem(estado_texto)
+
+            # Tooltips para inspección completa al pasar el cursor
+            item_id.setToolTip(f"Identificador: {s.nombre}")
+            item_tipo.setToolTip(f"Tipo: {tipo_texto}")
+            item_lineas.setToolTip(f"Líneas de aparición de '{s.nombre}':\n{lineas_texto}")
+            item_offset.setToolTip(f"Desplazamiento en memoria: {offset_texto}")
+            item_estado.setToolTip(f"Estado / Observaciones:\n{estado_texto}")
+
+            es_dup = getattr(s, "es_duplicado", False)
+            if es_dup:
+                for item in [item_id, item_tipo, item_lineas, item_offset, item_estado]:
+                    item.setBackground(color_error_bg)
+                    item.setForeground(color_error_txt)
+            else:
+                item_estado.setForeground(color_valido_txt)
+
+            self.tabla_simbolos.setItem(row, 0, item_id)
+            self.tabla_simbolos.setItem(row, 1, item_tipo)
+            self.tabla_simbolos.setItem(row, 2, item_lineas)
+            self.tabla_simbolos.setItem(row, 3, item_offset)
+            self.tabla_simbolos.setItem(row, 4, item_estado)
+
+        # Ajuste dinámico de columnas y filas al contenido para que ningún texto se corte
+        self.tabla_simbolos.resizeColumnsToContents()
+        self.tabla_simbolos.resizeRowsToContents()
+
+        # Establecer anchos mínimos confortables para que las columnas sean amplias, legibles y desplazables
+        anchos_minimos = {0: 120, 1: 130, 2: 260, 3: 160, 4: 240}
+        for col_idx, ancho_min in anchos_minimos.items():
+            ancho_calculado = self.tabla_simbolos.columnWidth(col_idx)
+            self.tabla_simbolos.setColumnWidth(col_idx, max(ancho_calculado + 25, ancho_min))
 
         # 5. Consolidar y categorizar errores en la consola
         secciones_errores = []

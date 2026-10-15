@@ -1,0 +1,11 @@
+{
+    "files": [
+        "main.py",
+        "ventana_principal.py",
+        "editor.py",
+        "lexer.py",
+        "parser.py",
+        "symbol_table.py",
+        "semantic_analyzer.py"
+    ]
+}

@@ -147,13 +147,17 @@ class SemanticAnalyzer:
                 hijo.dtype = tipo_declarado
 
                 # Intentamos insertar en la tabla de símbolos
+                lin = hijo.linea or nodo.linea
+                col = hijo.columna or nodo.columna
                 exito, resultado = self.tabla.insertar(
                     nombre=nombre_id,
                     tipo=tipo_declarado,
-                    linea=hijo.linea
+                    linea=lin,
+                    columna=col
                 )
                 if not exito:
-                    self.reportar_error(resultado, hijo.linea, hijo.columna)
+                    hijo.tipo_dato = "ERROR_TYPE"
+                    self.reportar_error(resultado, lin, col)
 
     # =========================================================================
     # ASIGNACIONES Y OPERADORES UNARIOS

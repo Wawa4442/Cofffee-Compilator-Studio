@@ -1,5 +1,14 @@
 [project]
-name = "PySide Project"
+name = "Coffee Compiler Studio"
+version = "1.0.0"
 
 [tool.pyside6-project]
-files = ["editor.py", "lexer.py", "main.py", "parser.py", "semantic_analyzer.py", "symbol_table.py", "ventana_principal.py"]
+files = [
+    "main.py",
+    "ventana_principal.py",
+    "editor.py",
+    "lexer.py",
+    "parser.py",
+    "semantic_analyzer.py",
+    "symbol_table.py"
+]
