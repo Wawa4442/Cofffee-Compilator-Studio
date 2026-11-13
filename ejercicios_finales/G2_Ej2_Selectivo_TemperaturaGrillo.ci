@@ -1,0 +1,18 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (float): h, temperatura
+    READ h
+    t1 = h > 0.0
+    IF_FALSE t1 GOTO L1
+    t2 = h / 4.0
+    t3 = t2 + 40.0
+    temperatura = t3
+    GOTO L2
+LABEL L1:
+    temperatura = 0.0
+LABEL L2:
+    WRITE temperatura
+END_MAIN

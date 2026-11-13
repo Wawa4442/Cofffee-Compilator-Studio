@@ -1,0 +1,66 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): tipo, duracion, cuenta_locales
+# Declaración (float): costo_llamada, total_pagar
+    cuenta_locales = 0
+    total_pagar = 0.0
+    READ tipo
+LABEL L1:
+    t1 = 0 - 1
+    t2 = tipo != t1
+    IF_FALSE t2 GOTO L2
+    READ duracion
+    costo_llamada = 0.0
+    t3 = tipo == 1
+    IF_FALSE t3 GOTO L3
+    t4 = duracion <= 3
+    IF_FALSE t4 GOTO L5
+    costo_llamada = 7.59
+    GOTO L6
+LABEL L5:
+    t5 = duracion - 3
+    t6 = t5 * 3.03
+    t7 = 7.59 + t6
+    costo_llamada = t7
+LABEL L6:
+    GOTO L4
+LABEL L3:
+    t8 = tipo == 2
+    IF_FALSE t8 GOTO L7
+    t9 = duracion <= 3
+    IF_FALSE t9 GOTO L9
+    costo_llamada = 1.20
+    GOTO L10
+LABEL L9:
+    t10 = duracion - 3
+    t11 = t10 * 0.48
+    t12 = 1.20 + t11
+    costo_llamada = t12
+LABEL L10:
+    GOTO L8
+LABEL L7:
+    t13 = tipo == 3
+    IF_FALSE t13 GOTO L11
+    t14 = cuenta_locales + 1
+    cuenta_locales = t14
+    t15 = cuenta_locales > 50
+    IF_FALSE t15 GOTO L12
+    costo_llamada = 0.60
+    GOTO L13
+LABEL L12:
+    costo_llamada = 0.0
+LABEL L13:
+LABEL L11:
+LABEL L8:
+LABEL L4:
+    WRITE costo_llamada
+    t16 = total_pagar + costo_llamada
+    total_pagar = t16
+    READ tipo
+    GOTO L1
+LABEL L2:
+    WRITE total_pagar
+END_MAIN

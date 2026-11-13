@@ -1,0 +1,57 @@
+// ============================================================================
+// GRUPO 2 - EJERCICIO 4 (ESTRUCTURA REPETITIVA - WHILE)
+// Enunciado: Calcular lo que hay que pagar por un conjunto de llamadas
+//            telefónicas. Por cada llamada se ingresa el tipo:
+//              1 = Internacional (3 primeros min $7.59, min adicional $3.03)
+//              2 = Nacional      (3 primeros min $1.20, min adicional $0.48)
+//              3 = Local         (primeras 50 llamadas gratis, luego $0.60 c/u)
+//             -1 = Fin de datos (centinela)
+//            y la duración en minutos. Imprime el costo de cada llamada y al
+//            final el monto total acumulado a pagar.
+// ============================================================================
+main {
+    int tipo, duracion, cuenta_locales;
+    float costo_llamada, total_pagar;
+
+    cuenta_locales = 0;
+    total_pagar = 0.0;
+
+    cin >> tipo;
+
+    while (tipo != -1) {
+        cin >> duracion;
+        costo_llamada = 0.0;
+
+        if (tipo == 1) then
+            if (duracion <= 3) then
+                costo_llamada = 7.59;
+            else
+                costo_llamada = 7.59 + ((duracion - 3) * 3.03);
+            end
+        else
+            if (tipo == 2) then
+                if (duracion <= 3) then
+                    costo_llamada = 1.20;
+                else
+                    costo_llamada = 1.20 + ((duracion - 3) * 0.48);
+                end
+            else
+                if (tipo == 3) then
+                    cuenta_locales++;
+                    if (cuenta_locales > 50) then
+                        costo_llamada = 0.60;
+                    else
+                        costo_llamada = 0.0;
+                    end
+                end
+            end
+        end
+
+        cout << costo_llamada;
+        total_pagar = total_pagar + costo_llamada;
+
+        cin >> tipo;
+    }
+
+    cout << total_pagar;
+}

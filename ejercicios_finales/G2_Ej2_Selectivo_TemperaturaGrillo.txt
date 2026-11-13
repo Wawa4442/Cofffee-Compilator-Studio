@@ -1,0 +1,22 @@
+// ============================================================================
+// GRUPO 2 - EJERCICIO 2 (ESTRUCTURA SELECTIVA)
+// Enunciado: El número de sonidos emitidos por un grillo en un minuto es una
+//            función de la temperatura en grados Fahrenheit:
+//              T = h / 4 + 40
+//            Construya un programa que permita calcular la temperatura (si
+//            el número de sonidos h > 0), teniendo en cuenta los sonidos
+//            emitidos por el grillo.
+// ============================================================================
+main {
+    float h, temperatura;
+
+    cin >> h;
+
+    if (h > 0.0) then
+        temperatura = (h / 4.0) + 40.0;
+    else
+        temperatura = 0.0;
+    end
+
+    cout << temperatura;
+}

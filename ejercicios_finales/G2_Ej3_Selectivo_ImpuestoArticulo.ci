@@ -1,0 +1,40 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (float): costo_basico, impuesto, precio_total
+    READ costo_basico
+    t1 = costo_basico <= 20.0
+    IF_FALSE t1 GOTO L1
+    impuesto = 0.0
+    GOTO L2
+LABEL L1:
+    t2 = costo_basico <= 40.0
+    IF_FALSE t2 GOTO L3
+    t3 = costo_basico - 20.0
+    t4 = t3 * 0.30
+    impuesto = t4
+    GOTO L4
+LABEL L3:
+    t5 = costo_basico <= 500.0
+    IF_FALSE t5 GOTO L5
+    t6 = 20.0 * 0.30
+    t7 = costo_basico - 40.0
+    t8 = t7 * 0.40
+    t9 = t6 + t8
+    impuesto = t9
+    GOTO L6
+LABEL L5:
+    t10 = 20.0 * 0.30
+    t11 = costo_basico - 40.0
+    t12 = t11 * 0.50
+    t13 = t10 + t12
+    impuesto = t13
+LABEL L6:
+LABEL L4:
+LABEL L2:
+    t14 = costo_basico + impuesto
+    precio_total = t14
+    WRITE precio_total
+END_MAIN

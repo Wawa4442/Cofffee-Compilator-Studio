@@ -6,6 +6,14 @@
         "lexer.py",
         "parser.py",
         "symbol_table.py",
-        "semantic_analyzer.py"
+        "semantic_analyzer.py",
+        "code_tm.py",
+        "cgen.py",
+        "intermedio.py",
+        "tm_simulator.py",
+        "code.h",
+        "code.c",
+        "cgen.h",
+        "cgen.c"
     ]
 }

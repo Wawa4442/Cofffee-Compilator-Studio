@@ -1,0 +1,22 @@
+// ============================================================================
+// GRUPO 2 - EJERCICIO 1 (ESTRUCTURA SECUENCIAL)
+// Enunciado: Dado el ID y 5 calificaciones de un alumno obtenidas a lo largo
+//            del semestre, construya un programa que imprima la matrícula del
+//            alumno y el promedio de sus calificaciones.
+// ============================================================================
+main {
+    int matricula;
+    float cal1, cal2, cal3, cal4, cal5, promedio;
+
+    cin >> matricula;
+    cin >> cal1;
+    cin >> cal2;
+    cin >> cal3;
+    cin >> cal4;
+    cin >> cal5;
+
+    promedio = (cal1 + cal2 + cal3 + cal4 + cal5) / 5.0;
+
+    cout << matricula;
+    cout << promedio;
+}

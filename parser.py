@@ -448,6 +448,19 @@ class Parser:
 
         token = self.token_actual
 
+        # Soporte para signo unario negativo o positivo en expresiones (ej. -1, -x)
+        if token.tipo == "SIMBOLO" and token.valor in ["-", "+"]:
+            self.avanzar()
+            operando = self.parse_componente()
+            if token.valor == "-":
+                nodo_op = NodoAST("Operador Suma/Resta: -", linea=token.linea, columna=token.columna, token=token)
+                nodo_op.operador = "-"
+                nodo_cero = NodoAST("Valor (NUM): 0", linea=token.linea, columna=token.columna, tipo_dato="int", valor_constante=0)
+                nodo_op.agregar_hijo(nodo_cero)
+                nodo_op.agregar_hijo(operando)
+                return nodo_op
+            return operando
+
         if token.tipo == "SIMBOLO" and token.valor == "(":
             self.avanzar()
             nodo = self.parse_expresion()

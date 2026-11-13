@@ -1,0 +1,19 @@
+// ============================================================================
+// GRUPO 1 - EJERCICIO 1 (ESTRUCTURA SECUENCIAL)
+// Enunciado: Construya un programa tal que dado los datos A, B, C y D que
+//            representan números enteros, escriba los mismos en orden inverso.
+// ============================================================================
+main {
+    int A, B, C, D;
+
+    cin >> A;
+    cin >> B;
+    cin >> C;
+    cin >> D;
+
+    // Salida en orden inverso: D, C, B, A
+    cout << D;
+    cout << C;
+    cout << B;
+    cout << A;
+}

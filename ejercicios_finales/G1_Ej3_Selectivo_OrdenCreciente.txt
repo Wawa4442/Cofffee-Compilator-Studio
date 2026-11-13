@@ -1,0 +1,22 @@
+// ============================================================================
+// GRUPO 1 - EJERCICIO 3 (ESTRUCTURA SELECTIVA)
+// Enunciado: Construya un programa tal que dado como datos de entrada tres
+//            números enteros, determine si los mismos están en orden creciente:
+//              1 = Sí están en orden creciente (A < B < C)
+//              0 = No están en orden creciente
+// ============================================================================
+main {
+    int a, b, c, creciente;
+
+    cin >> a;
+    cin >> b;
+    cin >> c;
+
+    if ((a < b) && (b < c)) then
+        creciente = 1;
+    else
+        creciente = 0;
+    end
+
+    cout << creciente;
+}

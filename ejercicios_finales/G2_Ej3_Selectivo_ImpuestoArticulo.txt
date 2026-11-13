@@ -1,0 +1,33 @@
+// ============================================================================
+// GRUPO 2 - EJERCICIO 3 (ESTRUCTURA SELECTIVA)
+// Enunciado: En un cierto país el impuesto que se debe pagar por los artículos
+//            se calcula mediante la siguiente regla:
+//              - Los primeros $20 no causan impuesto.
+//              - Los siguientes $20 tienen el 30% de impuesto.
+//              - El resto tiene el 40% de impuesto, pero si el costo básico es
+//                mayor a $500, en lugar del 40% se cobra el 50%.
+//            Lea el costo básico de un artículo y calcule su precio total
+//            (precio_total = costo_basico + impuesto).
+// ============================================================================
+main {
+    float costo_basico, impuesto, precio_total;
+
+    cin >> costo_basico;
+
+    if (costo_basico <= 20.0) then
+        impuesto = 0.0;
+    else
+        if (costo_basico <= 40.0) then
+            impuesto = (costo_basico - 20.0) * 0.30;
+        else
+            if (costo_basico <= 500.0) then
+                impuesto = (20.0 * 0.30) + ((costo_basico - 40.0) * 0.40);
+            else
+                impuesto = (20.0 * 0.30) + ((costo_basico - 40.0) * 0.50);
+            end
+        end
+    end
+
+    precio_total = costo_basico + impuesto;
+    cout << precio_total;
+}

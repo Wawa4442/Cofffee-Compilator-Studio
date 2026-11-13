@@ -47,15 +47,15 @@ class Highlighter(QSyntaxHighlighter):
             return f
 
         self.formats = {
-            "RESERVADA": fmt("#569CD6"),
-            "BOOL": fmt("#569CD6"),
-            "ID": fmt("#9CDCFE"),
-            "NUM": fmt("#B5CEA8"),
-            "SIMBOLO": fmt("#D4D4D4"),
-            "OP": fmt("#D4D4D4"),
-            "COMENTARIO": fmt("#6A9955"),
-            "ERROR": fmt("#FF0000", True),
-            "COMENTARIO_ERROR": fmt("#FF0000", True)
+            "RESERVADA": fmt("#d4af37"),       # Dorado cálido para palabras clave
+            "BOOL": fmt("#e0a96d"),            # Ámbar suave para booleanos
+            "ID": fmt("#f1e7dd"),              # Crema/Hueso para identificadores
+            "NUM": fmt("#80c480"),             # Verde pistacho suave para números
+            "SIMBOLO": fmt("#bca085"),          # Canela claro para símbolos
+            "OP": fmt("#d4af37"),              # Dorado para operadores
+            "COMENTARIO": fmt("#8c715c"),      # Café avellana para comentarios
+            "ERROR": fmt("#ff6b6b", True),     # Rojo coral para errores
+            "COMENTARIO_ERROR": fmt("#ff6b6b", True)
         }
 
     def setData(self, tokens, errores):
@@ -160,8 +160,15 @@ class EditorCodigo(QPlainTextEdit):
 
         self.setStyleSheet("""
             QPlainTextEdit {
-                background-color: #1e1e1e;
-                color: #ffffff;
+                background-color: #120602;
+                color: #ffecd1;
+                border: 3px solid #6b442e;
+                border-radius: 6px;
+                font-size: 11pt;
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            QPlainTextEdit:focus {
+                border: 3px solid #ffaa44;
             }
         """)
 
@@ -290,7 +297,7 @@ class EditorCodigo(QPlainTextEdit):
     def lineNumberAreaPaintEvent(self, event):
 
         painter = QPainter(self.lineNumberArea)
-        painter.fillRect(event.rect(), QColor("#252526"))
+        painter.fillRect(event.rect(), QColor("#1c0e07"))
 
         block = self.firstVisibleBlock()
         blockNumber = block.blockNumber()
@@ -303,7 +310,7 @@ class EditorCodigo(QPlainTextEdit):
             if block.isVisible() and bottom >= event.rect().top():
 
                 number = str(blockNumber + 1)
-                painter.setPen(QColor("#aaaaaa"))
+                painter.setPen(QColor("#c49a6c"))
 
                 painter.drawText(
                     0,
@@ -323,7 +330,7 @@ class EditorCodigo(QPlainTextEdit):
         extraSelections = []
         if not self.isReadOnly():
             selection = QTextEdit.ExtraSelection()
-            selection.format.setBackground(QColor("#2a2d2e"))
+            selection.format.setBackground(QColor("#2d180d"))
             selection.format.setProperty(QTextFormat.FullWidthSelection, True)
             selection.cursor = self.textCursor()
             selection.cursor.clearSelection()

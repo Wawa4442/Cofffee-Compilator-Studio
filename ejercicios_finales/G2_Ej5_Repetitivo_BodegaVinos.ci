@@ -1,0 +1,66 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): n_anios, anio, anio_max_tipo2, anio_sin_tipo3
+# Declaración (float): v1, v2, v3, v4, v5
+# Declaración (float): tot1, tot2, tot3, tot4, tot5, total_anio, max_tipo2
+    tot1 = 0.0
+    tot2 = 0.0
+    tot3 = 0.0
+    tot4 = 0.0
+    tot5 = 0.0
+    t1 = 0 - 1.0
+    max_tipo2 = t1
+    anio_max_tipo2 = 0
+    anio_sin_tipo3 = 0
+    READ n_anios
+    anio = 1
+LABEL L1:
+    READ v1
+    READ v2
+    READ v3
+    READ v4
+    READ v5
+    t2 = tot1 + v1
+    tot1 = t2
+    t3 = tot2 + v2
+    tot2 = t3
+    t4 = tot3 + v3
+    tot3 = t4
+    t5 = tot4 + v4
+    tot4 = t5
+    t6 = tot5 + v5
+    tot5 = t6
+    t7 = v1 + v2
+    t8 = t7 + v3
+    t9 = t8 + v4
+    t10 = t9 + v5
+    total_anio = t10
+    WRITE total_anio
+    t11 = v2 > max_tipo2
+    IF_FALSE t11 GOTO L2
+    max_tipo2 = v2
+    anio_max_tipo2 = anio
+LABEL L2:
+    t12 = v3 == 0.0
+    IF_FALSE t12 GOTO L3
+    anio_sin_tipo3 = anio
+LABEL L3:
+    t13 = anio + 1
+    anio = t13
+    t14 = anio > n_anios
+    IF_FALSE t14 GOTO L1
+    WRITE tot1
+    WRITE tot2
+    WRITE tot3
+    WRITE tot4
+    WRITE tot5
+    WRITE anio_max_tipo2
+    WRITE max_tipo2
+    t15 = anio_sin_tipo3 > 0
+    IF_FALSE t15 GOTO L4
+    WRITE anio_sin_tipo3
+LABEL L4:
+END_MAIN

@@ -1,0 +1,66 @@
+// ============================================================================
+// GRUPO 1 - EJERCICIO 5 (ESTRUCTURA REPETITIVA - DO UNTIL)
+// Enunciado: En el centro meteorológico de Argentina se llevan los promedios
+//            mensuales de las lluvias caídas en las 3 regiones principales
+//            (1=NORTE, 2=CENTRO, 3=SUR) durante los 12 meses del año.
+//            Calcular e imprimir:
+//              a) El promedio anual de la región CENTRO.
+//              b) El mes y registro con menor lluvia en la región SUR.
+//              c) La región con mayor lluvia anual (1=NORTE, 2=CENTRO, 3=SUR)
+//                 y su total acumulado.
+// ============================================================================
+main {
+    int mes, mes_menor_sur, region_mayor;
+    float lluvia_norte, lluvia_centro, lluvia_sur;
+    float suma_norte, suma_centro, suma_sur;
+    float prom_centro, menor_sur, mayor_anual;
+
+    suma_norte = 0.0;
+    suma_centro = 0.0;
+    suma_sur = 0.0;
+    menor_sur = 999999.0;
+    mes_menor_sur = 1;
+    mes = 1;
+
+    do {
+        cin >> lluvia_norte;
+        cin >> lluvia_centro;
+        cin >> lluvia_sur;
+
+        suma_norte = suma_norte + lluvia_norte;
+        suma_centro = suma_centro + lluvia_centro;
+        suma_sur = suma_sur + lluvia_sur;
+
+        if (lluvia_sur < menor_sur) then
+            menor_sur = lluvia_sur;
+            mes_menor_sur = mes;
+        end
+
+        mes++;
+    } until (mes > 12);
+
+    // a) Promedio anual de la región centro
+    prom_centro = suma_centro / 12.0;
+    cout << prom_centro;
+
+    // b) Mes y registro con menor lluvia en la región sur
+    cout << mes_menor_sur;
+    cout << menor_sur;
+
+    // c) Región con mayor lluvia anual (1=NORTE, 2=CENTRO, 3=SUR)
+    if ((suma_norte > suma_centro) && (suma_norte > suma_sur)) then
+        region_mayor = 1;
+        mayor_anual = suma_norte;
+    else
+        if (suma_centro > suma_sur) then
+            region_mayor = 2;
+            mayor_anual = suma_centro;
+        else
+            region_mayor = 3;
+            mayor_anual = suma_sur;
+        end
+    end
+
+    cout << region_mayor;
+    cout << mayor_anual;
+}

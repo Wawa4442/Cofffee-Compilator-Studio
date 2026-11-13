@@ -1,0 +1,15 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): A, B, C, D
+    READ A
+    READ B
+    READ C
+    READ D
+    WRITE D
+    WRITE C
+    WRITE B
+    WRITE A
+END_MAIN

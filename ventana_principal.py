@@ -1,10 +1,19 @@
 import os
 import sys
+import ctypes
+from pathlib import Path
+
+# 1. Registrar un App ID de Windows para que el ícono de la barra de tareas no herede el de Python
+myappid = 'mycompany.myproduct.subproduct.1'  # Cadena arbitraria
+try:
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except Exception:
+    pass
 
 from PySide6.QtWidgets import (
     QMainWindow, QTextEdit, QTabWidget, QToolBar,
     QSplitter, QStatusBar, QFileDialog,
-    QMessageBox, QApplication,
+    QMessageBox, QApplication, QInputDialog,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QTreeWidget, QTreeWidgetItem  # Agregados para el AST visual
 )
@@ -16,6 +25,18 @@ from editor import EditorCodigo
 from lexer import Lexer
 from parser import Parser  # Importamos nuestro nuevo analizador sintáctico
 from semantic_analyzer import SemanticAnalyzer
+from intermedio import GeneradorCodigoIntermedio
+from cgen import CodeGeneratorTM
+from tm_simulator import TinyMachineSimulator
+
+
+def obtener_icono(nombre_archivo):
+    """Retorna un QIcon asegurando la ruta absoluta hacia la carpeta assets."""
+    dir_assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+    ruta = os.path.join(dir_assets, nombre_archivo)
+    if os.path.exists(ruta):
+        return QIcon(ruta)
+    return QIcon(os.path.join("assets", nombre_archivo))
 
 
 class VentanaPrincipal(QMainWindow):
@@ -26,6 +47,218 @@ class VentanaPrincipal(QMainWindow):
 
         self.setWindowTitle("Coffee Compiler Studio")
         self.resize(1200,900)
+
+        # 1. ARREGLAR LOGO (Ventana y Barra de Tareas)
+        base_path = Path(__file__).resolve().parent
+        logo_path = os.path.join(base_path, "assets", "Coffee Logo.jpg")
+
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(base_path, "assets", "Coffee Logo.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(base_path, "assets", "Coffee Logo.jpeg")
+
+        if os.path.exists(logo_path):
+            self.setWindowIcon(QIcon(logo_path))
+            app_inst = QApplication.instance()
+            if app_inst:
+                app_inst.setWindowIcon(QIcon(logo_path))
+        else:
+            print(f"ERROR: No se encontró el logo en {logo_path}")
+
+        # 2. NUEVA PALETA CÁLIDA, CLARA Y DE ALTO CONTRASTE (Light/Medium "Coffee Theme")
+        self.setStyleSheet("""
+            /* Fondo general más claro (Canela / Arena suave) */
+            QMainWindow { 
+                background-color: #3b2314; 
+                color: #fff8f2; 
+            }
+            
+            /* Barra de menús y toolbar en café medio que destaque */
+            QMenuBar { 
+                background-color: #2b170c; 
+                color: #ffd8a8; 
+                border-bottom: 2px solid #5a3825; 
+                font-weight: bold;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                color: #ffd8a8;
+                padding: 4px 10px;
+            }
+            QMenuBar::item:selected { 
+                background-color: #5a3825; 
+                color: #ffffff; 
+                border-radius: 4px;
+            }
+            
+            QToolBar { 
+                background-color: #4e3223; 
+                border: 2px solid #5a3825; 
+                border-radius: 6px; 
+                padding: 4px;
+                margin: 4px;
+            }
+            QToolBar QToolButton {
+                padding: 4px;
+                border-radius: 4px;
+            }
+            QToolBar QToolButton:hover {
+                background-color: #6b442e;
+            }
+            
+            /* Panel lateral y principal del editor (Alto Contraste) */
+            QTabWidget::pane { 
+                border: 3px solid #6b442e; 
+                background-color: #1a0d06; 
+                border-radius: 6px;
+            }
+            
+            /* Pestañas bien legibles y contrastadas */
+            QTabBar::tab { 
+                background-color: #2c160b; 
+                color: #d2b48c; 
+                padding: 8px 16px; 
+                border: 2px solid #5a3825; 
+                border-bottom: none; 
+                border-top-left-radius: 6px; 
+                border-top-right-radius: 6px; 
+                font-weight: bold;
+            }
+            QTabBar::tab:selected { 
+                background-color: #5a3825; 
+                color: #ffffff; 
+                border-color: #d4af37; 
+                font-weight: bold;
+            }
+            QTabBar::tab:hover {
+                background-color: #4e3223;
+                color: #fcece0;
+            }
+            
+            /* El Editor de Código (Oscuro profundo para sintaxis, con bordes cálidos claros) */
+            QTextEdit, QPlainTextEdit { 
+                background-color: #120602; 
+                color: #ffecd1; 
+                border: 3px solid #6b442e; 
+                border-radius: 6px;
+                font-size: 11pt;
+                font-family: 'Consolas', 'Courier New', monospace; 
+            }
+            QTextEdit:focus, QPlainTextEdit:focus { 
+                border: 3px solid #ffaa44; /* Borde naranja/dorado encendido al enfocar */
+            }
+
+            /* Tablas y visualizadores de análisis (Léxico, sintáctico, etc.) */
+            QTableWidget, QTreeWidget, QTreeView {
+                background-color: #1a0d06;
+                color: #fff3e3;
+                border: 3px solid #6b442e;
+                gridline-color: #5a3825;
+                font-family: 'Consolas', monospace;
+            }
+            QTreeWidget::item:hover, QTableWidget::item:hover {
+                background-color: #3e2511;
+            }
+            QTreeWidget::item:selected, QTableWidget::item:selected {
+                background-color: #8c5230;
+                color: #ffffff;
+            }
+            QHeaderView::section { 
+                background-color: #4e3223; 
+                color: #ffffff; 
+                font-weight: bold;
+                border: 1px solid #6b442e; 
+                padding: 6px;
+            }
+
+            /* Etiquetas de pestañas y textos explicativos */
+            QLabel { 
+                color: #ffd8a8; 
+                font-weight: bold;
+                font-size: 10pt;
+            }
+
+            /* Botones que de verdad resalten (Terracota y dorado) */
+            QPushButton { 
+                background-color: #8c5230; 
+                color: #ffffff; 
+                border: 2px solid #bf7d4e; 
+                border-radius: 6px; 
+                padding: 8px 16px; 
+                font-weight: bold;
+            }
+            QPushButton:hover { 
+                background-color: #a05e38; 
+                border-color: #ffd8a8; 
+            }
+            QPushButton:pressed { 
+                background-color: #5a2e16; 
+            }
+
+            /* Menús desplegables y cuadros de diálogo */
+            QMenu {
+                background-color: #2b170c;
+                color: #ffd8a8;
+                border: 2px solid #5a3825;
+            }
+            QMenu::item:selected {
+                background-color: #5a3825;
+                color: #ffffff;
+            }
+            QDialog, QMessageBox { 
+                background-color: #3b2314; 
+                color: #fff8f2; 
+            }
+            QLineEdit {
+                background-color: #120602;
+                color: #ffecd1;
+                border: 2px solid #6b442e;
+                border-radius: 4px;
+                padding: 4px;
+                font-family: 'Consolas', monospace;
+            }
+            QLineEdit:focus {
+                border: 2px solid #ffaa44;
+            }
+            QStatusBar {
+                background-color: #2b170c;
+                color: #ffd8a8;
+                border-top: 2px solid #5a3825;
+                font-weight: bold;
+            }
+            QSplitter::handle {
+                background-color: #5a3825;
+            }
+            QSplitter::handle:hover {
+                background-color: #8c5230;
+            }
+            QScrollBar:vertical {
+                background: #2b170c;
+                width: 12px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #5a3825;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #8c5230;
+            }
+            QScrollBar:horizontal {
+                background: #2b170c;
+                height: 12px;
+                margin: 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #5a3825;
+                min-width: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #8c5230;
+            }
+        """)
 
 # EDITOR
 
@@ -305,6 +538,10 @@ class VentanaPrincipal(QMainWindow):
         if not editor:
             return
 
+        # Limpiar salidas previas de código intermedio y ejecución en cada nueva compilación
+        self.res_intermedio.clear()
+        self.salida_ejecucion.clear()
+
         codigo = editor.toPlainText()
         lexer = Lexer(codigo)
         tokens, errores = lexer.analizar()
@@ -341,7 +578,7 @@ class VentanaPrincipal(QMainWindow):
 
 # 🔥 ANALISIS SINTACTICO
 
-    def analisis_sintactico(self):
+    def analisis_sintactico(self, _checked=False, cambiar_pestana=True):
         # Primero ejecutamos el léxico para obtener los tokens más recientes
         resultado_lexico = self.analisis_lexico()
         if not resultado_lexico:
@@ -387,15 +624,15 @@ class VentanaPrincipal(QMainWindow):
         else:
             self.statusBar().showMessage("Análisis Sintáctico completado. ¡Estructura validada al 100%!", 5000)
 
-        # Cambiamos automáticamente a la pestaña del Sintáctico
-        self.tabs_analisis.setCurrentIndex(1)
+        if cambiar_pestana:
+            self.tabs_analisis.setCurrentIndex(1)
         return arbol, errores_sintacticos, errores_lexicos
 
 # 🔥 ANALISIS SEMANTICO
 
-    def analisis_semantico(self):
+    def analisis_semantico(self, _checked=False, cambiar_pestana=True):
         # 1. Ejecutar análisis sintáctico previo para validar y obtener AST
-        resultado_sintactico = self.analisis_sintactico()
+        resultado_sintactico = self.analisis_sintactico(cambiar_pestana=False)
         if not resultado_sintactico:
             return
 
@@ -443,9 +680,9 @@ class VentanaPrincipal(QMainWindow):
         self.tabla_simbolos.setRowCount(0)
         self.tabla_simbolos.setRowCount(len(simbolos))
 
-        color_error_bg = QColor(255, 235, 235)      # Fondo rojo/salmón suave para duplicados
-        color_error_txt = QColor(190, 0, 0)         # Texto rojo oscuro
-        color_valido_txt = QColor(0, 130, 0)        # Texto verde oscuro para VÁLIDO
+        color_error_bg = QColor(80, 25, 20)        # Fondo café/marrón rojizo cálido para duplicados
+        color_error_txt = QColor(255, 140, 140)    # Texto salmón claro de alto contraste
+        color_valido_txt = QColor(140, 215, 140)   # Texto verde suave para VÁLIDO
 
         for row, s in enumerate(simbolos):
             item_id = QTableWidgetItem(s.nombre)
@@ -512,13 +749,173 @@ class VentanaPrincipal(QMainWindow):
 
         if secciones_errores:
             self.consola_errores.setPlainText("\n".join(secciones_errores))
+            self.tabs_inferiores.setCurrentIndex(0)
             self.statusBar().showMessage(f"Análisis Semántico finalizado con {len(errores_semanticos)} error(es) semántico(s).", 5000)
         else:
             self.consola_errores.setPlainText("¡Compilación exitosa! Estructura y semántica validadas al 100% (0 errores).")
             self.statusBar().showMessage("Análisis Semántico completado con éxito. ¡0 errores!", 5000)
 
-        # Cambiamos automáticamente a la pestaña de Semántico
-        self.tabs_analisis.setCurrentIndex(2)
+        if cambiar_pestana:
+            self.tabs_analisis.setCurrentIndex(2)
+
+        return ast_anotado, tabla, errores_semanticos, errores_sintacticos, errores_lexicos
+
+# 🔥 GENERACIÓN DE CÓDIGO INTERMEDIO (.ci) Y OBJETO TINY MACHINE (.tm)
+
+    def _obtener_rutas_salida(self):
+        """
+        Determina las rutas en disco para los archivos .ci y .tm a partir del
+        archivo abierto en el editor actual (o en el directorio del proyecto si no se ha guardado).
+        """
+        ed = self.obtener_editor_actual()
+        if ed and getattr(ed, "ruta_archivo", None):
+            base, _ = os.path.splitext(ed.ruta_archivo)
+        else:
+            directorio_base = os.path.dirname(os.path.abspath(__file__))
+            base = os.path.join(directorio_base, "programa_actual")
+        return base + ".ci", base + ".tm"
+
+    def generar_codigo_intermedio(self, _checked=False, cambiar_pestana=True):
+        """
+        Ejecuta el pipeline completo de análisis (Léxico -> Sintáctico -> Semántico)
+        y, únicamente si existen 0 errores en todas las fases, genera:
+          1. El archivo de Código de Tres Direcciones (.ci)
+          2. El archivo de Código Objeto para la Tiny Machine (.tm)
+        Mostrando el resultado en la pestaña 'Código Intermedio'.
+        """
+        self.res_intermedio.clear()
+        resultado_sem = self.analisis_semantico(cambiar_pestana=False)
+        if not resultado_sem:
+            return None
+
+        ast_anotado, tabla, errores_sem, errores_sin, errores_lex = resultado_sem
+        total_errores = len(errores_lex) + len(errores_sin) + len(errores_sem)
+
+        if total_errores > 0:
+            mensaje_bloqueo = (
+                "====================================================================\n"
+                "  GENERACIÓN DE CÓDIGO CANCELADA: SE DETECTARON ERRORES PREVIOS\n"
+                "====================================================================\n"
+                f"  - Errores Léxicos:     {len(errores_lex)}\n"
+                f"  - Errores Sintácticos: {len(errores_sin)}\n"
+                f"  - Errores Semánticos:  {len(errores_sem)}\n\n"
+                "Por favor, corrija los errores reportados en la pestaña 'Errores'\n"
+                "antes de generar código intermedio (.ci) o código objeto (.tm)."
+            )
+            self.res_intermedio.setPlainText(mensaje_bloqueo)
+            self.tabs_inferiores.setCurrentIndex(0)
+            if cambiar_pestana:
+                self.tabs_analisis.setCurrentIndex(3)
+            self.statusBar().showMessage("Generación de código abortada por errores de análisis.", 5000)
+            return None
+
+        ruta_ci, ruta_tm = self._obtener_rutas_salida()
+
+        # 1. Generar Código Intermedio de Tres Direcciones (.ci)
+        gen_ci = GeneradorCodigoIntermedio()
+        codigo_ci = gen_ci.generarCodigoIntermedio(ast_anotado, ruta_archivo_ci=ruta_ci)
+
+        # 2. Generar Código Objeto para la Tiny Machine (.tm)
+        gen_tm = CodeGeneratorTM(tabla_simbolos=tabla, trace_code=True)
+        codigo_tm = gen_tm.codeGen(ast_anotado, codefile_path=ruta_tm)
+
+        # 3. Formatear y mostrar ambos resultados en la pestaña 'Código Intermedio'
+        vista_combinada = (
+            "========================================================================\n"
+            f"  1. CÓDIGO OBJETO TINY MACHINE (.tm) -> {os.path.basename(ruta_tm)}\n"
+            "========================================================================\n"
+            f"{codigo_tm}\n"
+            "========================================================================\n"
+            f"  2. CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci) -> {os.path.basename(ruta_ci)}\n"
+            "========================================================================\n"
+            f"{codigo_ci}"
+        )
+        self.res_intermedio.setPlainText(vista_combinada)
+
+        if cambiar_pestana:
+            self.tabs_analisis.setCurrentIndex(3)
+
+        self.statusBar().showMessage(
+            f"Código generado con éxito: {os.path.basename(ruta_tm)} y {os.path.basename(ruta_ci)}",
+            5000
+        )
+        return ruta_tm, codigo_tm, ruta_ci, codigo_ci
+
+# 🔥 EJECUCIÓN EN EL SIMULADOR TINY MACHINE (TM)
+
+    def ejecutar_programa(self):
+        """
+        Compila el código actual, verifica que existan 0 errores, genera el
+        archivo .tm y lo ejecuta en el simulador de la Tiny Machine (tm_simulator.py),
+        interactuando con el usuario para instrucciones IN y mostrando los
+        resultados de OUT en la pestaña 'Ejecución'.
+        """
+        self.salida_ejecucion.clear()
+
+        resultado_gen = self.generar_codigo_intermedio(cambiar_pestana=False)
+        if not resultado_gen:
+            self.salida_ejecucion.setPlainText(
+                "[EJECUCIÓN ABORTADA]\n"
+                "No es posible ejecutar la Máquina Virtual Tiny Machine porque el\n"
+                "programa contiene errores léxicos, sintácticos o semánticos.\n"
+                "Revise la pestaña 'Errores'."
+            )
+            self.tabs_inferiores.setCurrentIndex(0)
+            return
+
+        ruta_tm, codigo_tm, ruta_ci, _ = resultado_gen
+
+        # Enfocar la pestaña de Código Intermedio arriba y Ejecución abajo
+        self.tabs_analisis.setCurrentIndex(3)
+        self.tabs_inferiores.setCurrentIndex(1)
+
+        simulador = TinyMachineSimulator()
+        ok, info = simulador.cargar_archivo_tm(ruta_tm)
+        if not ok:
+            self.salida_ejecucion.setPlainText(f"[ERROR AL CARGAR ARCHIVO .TM]\n{info}")
+            return
+
+        # Callback interactivo para la instrucción RO 'IN' de la Tiny Machine
+        def solicitar_entrada_tm(nombre_var, comentario_inst):
+            while True:
+                texto, aceptado = QInputDialog.getText(
+                    self,
+                    "Entrada Tiny Machine (Instrucción IN)",
+                    f"Ingrese el valor numérico para '{nombre_var}':\n({comentario_inst})"
+                )
+                if not aceptado:
+                    return 0, False
+                texto = texto.strip()
+                try:
+                    valor = float(texto) if "." in texto else int(texto)
+                    return valor, True
+                except ValueError:
+                    QMessageBox.warning(
+                        self,
+                        "Valor inválido",
+                        f"'{texto}' no es un número válido. Ingrese un valor entero o decimal (ej. 10 o 3.14)."
+                    )
+
+        # Callback en tiempo real para actualizar la pestaña 'Ejecución'
+        def mostrar_linea_ejecucion(linea):
+            self.salida_ejecucion.append(linea)
+            QApplication.processEvents()
+
+        self.salida_ejecucion.append(f"Archivo ejecutado: {ruta_tm}\n")
+        resultado_sim = simulador.ejecutar(
+            input_callback=solicitar_entrada_tm,
+            output_callback=mostrar_linea_ejecucion
+        )
+
+        if resultado_sim["exito"]:
+            self.statusBar().showMessage(
+                f"Ejecución en Tiny Machine finalizada con éxito ({resultado_sim['pasos']} instrucciones ejecutadas).",
+                6000
+            )
+        elif resultado_sim["estado"] == "CANCELADO":
+            self.statusBar().showMessage("Ejecución en Tiny Machine cancelada por el usuario.", 5000)
+        else:
+            self.statusBar().showMessage("Error en tiempo de ejecución en la Tiny Machine.", 5000)
 
 
 # MENUS
@@ -601,14 +998,14 @@ class VentanaPrincipal(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, toolbar_archivo)
 
         acciones = [
-            ("assets/file_new.png","Nuevo Archivo",self.nuevo_archivo),
-            ("assets/file_open.png","Abrir",self.abrir_archivo),
-            ("assets/file_save.png","Guardar",self.guardar_archivo),
-            ("assets/file_save_as.png","Guardar como",self.guardar_como)
+            ("file_new.png", "Nuevo Archivo", self.nuevo_archivo),
+            ("file_open.png", "Abrir", self.abrir_archivo),
+            ("file_save.png", "Guardar", self.guardar_archivo),
+            ("file_save_as.png", "Guardar como", self.guardar_como)
         ]
 
-        for icono, nombre, func in acciones:
-            accion = QAction(QIcon(icono), nombre, self)
+        for icono_nombre, nombre, func in acciones:
+            accion = QAction(obtener_icono(icono_nombre), nombre, self)
             accion.triggered.connect(func)
             toolbar_archivo.addAction(accion)
 
@@ -625,25 +1022,29 @@ class VentanaPrincipal(QMainWindow):
     def agregar_fases(self,objeto):
 
         fases = [
-                {"nombre": "Léxico", "icono": "assets/lexico.png"},
-                {"nombre": "Sintáctico", "icono": "assets/sintactico.png"},
-                {"nombre": "Semántico", "icono": "assets/semantico.png"},
-                {"nombre": "Intermedio", "icono": "assets/intermedio.png"},
-                {"nombre": "Ejecutar", "icono": "assets/ejecutar.png"}
+            {"nombre": "Léxico", "icono": "lexico.png"},
+            {"nombre": "Sintáctico", "icono": "sintactico.png"},
+            {"nombre": "Semántico", "icono": "semantico.png"},
+            {"nombre": "Intermedio", "icono": "intermedio.png"},
+            {"nombre": "Ejecutar", "icono": "ejecutar.png"}
         ]
 
         for f in fases:
-                icono = QIcon(f["icono"])
-                accion = QAction(icono, f["nombre"], self)
+            icono = obtener_icono(f["icono"])
+            accion = QAction(icono, f["nombre"], self)
 
-                if f["nombre"] == "Léxico":
-                    accion.triggered.connect(self.analisis_lexico)
-                elif f["nombre"] == "Sintáctico":
-                    accion.triggered.connect(self.analisis_sintactico)
-                elif f["nombre"] == "Semántico":
-                    accion.triggered.connect(self.analisis_semantico)
+            if f["nombre"] == "Léxico":
+                accion.triggered.connect(self.analisis_lexico)
+            elif f["nombre"] == "Sintáctico":
+                accion.triggered.connect(lambda _=False: self.analisis_sintactico(cambiar_pestana=True))
+            elif f["nombre"] == "Semántico":
+                accion.triggered.connect(lambda _=False: self.analisis_semantico(cambiar_pestana=True))
+            elif f["nombre"] == "Intermedio":
+                accion.triggered.connect(lambda _=False: self.generar_codigo_intermedio(cambiar_pestana=True))
+            elif f["nombre"] == "Ejecutar":
+                accion.triggered.connect(self.ejecutar_programa)
 
-                objeto.addAction(accion)
+            objeto.addAction(accion)
 
 
 if __name__=="__main__":

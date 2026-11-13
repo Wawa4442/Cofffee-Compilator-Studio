@@ -1,0 +1,76 @@
+// ============================================================================
+// GRUPO 2 - EJERCICIO 5 (ESTRUCTURA REPETITIVA - DO UNTIL)
+// Enunciado: En una bodega se tiene información sobre las cantidades producidas
+//            de cada tipo de vino (5 tipos) a lo largo de los últimos N años.
+//            Calcular e imprimir:
+//              a) El total producido de cada tipo de vino (1..5) en los N años.
+//              b) El total producido de vino por cada año.
+//              c) El año en que se produjo la mayor cantidad de litros de vino
+//                 del tipo 2, junto con dicha cantidad de litros.
+//              d) Verificar si hubo algún año en el cual no se produjo el vino
+//                 tipo 3 (0 litros). Si existe dicho año, imprimirlo.
+// ============================================================================
+main {
+    int n_anios, anio, anio_max_tipo2, anio_sin_tipo3;
+    float v1, v2, v3, v4, v5;
+    float tot1, tot2, tot3, tot4, tot5, total_anio, max_tipo2;
+
+    tot1 = 0.0;
+    tot2 = 0.0;
+    tot3 = 0.0;
+    tot4 = 0.0;
+    tot5 = 0.0;
+    max_tipo2 = -1.0;
+    anio_max_tipo2 = 0;
+    anio_sin_tipo3 = 0;
+
+    cin >> n_anios;
+    anio = 1;
+
+    do {
+        cin >> v1;
+        cin >> v2;
+        cin >> v3;
+        cin >> v4;
+        cin >> v5;
+
+        tot1 = tot1 + v1;
+        tot2 = tot2 + v2;
+        tot3 = tot3 + v3;
+        tot4 = tot4 + v4;
+        tot5 = tot5 + v5;
+
+        // b) Total producido de vino en el año actual
+        total_anio = v1 + v2 + v3 + v4 + v5;
+        cout << total_anio;
+
+        // c) Mayor producción de vino tipo 2
+        if (v2 > max_tipo2) then
+            max_tipo2 = v2;
+            anio_max_tipo2 = anio;
+        end
+
+        // d) Verificar si no se produjo vino tipo 3 en este año
+        if (v3 == 0.0) then
+            anio_sin_tipo3 = anio;
+        end
+
+        anio++;
+    } until (anio > n_anios);
+
+    // a) Total producido de cada uno de los 5 tipos de vino
+    cout << tot1;
+    cout << tot2;
+    cout << tot3;
+    cout << tot4;
+    cout << tot5;
+
+    // c) Año con mayor producción de tipo 2 y cantidad de litros
+    cout << anio_max_tipo2;
+    cout << max_tipo2;
+
+    // d) Si hubo algún año con 0 litros de tipo 3, imprimirlo
+    if (anio_sin_tipo3 > 0) then
+        cout << anio_sin_tipo3;
+    end
+}

@@ -1,0 +1,60 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): mes, mes_menor_sur, region_mayor
+# Declaración (float): lluvia_norte, lluvia_centro, lluvia_sur
+# Declaración (float): suma_norte, suma_centro, suma_sur
+# Declaración (float): prom_centro, menor_sur, mayor_anual
+    suma_norte = 0.0
+    suma_centro = 0.0
+    suma_sur = 0.0
+    menor_sur = 999999.0
+    mes_menor_sur = 1
+    mes = 1
+LABEL L1:
+    READ lluvia_norte
+    READ lluvia_centro
+    READ lluvia_sur
+    t1 = suma_norte + lluvia_norte
+    suma_norte = t1
+    t2 = suma_centro + lluvia_centro
+    suma_centro = t2
+    t3 = suma_sur + lluvia_sur
+    suma_sur = t3
+    t4 = lluvia_sur < menor_sur
+    IF_FALSE t4 GOTO L2
+    menor_sur = lluvia_sur
+    mes_menor_sur = mes
+LABEL L2:
+    t5 = mes + 1
+    mes = t5
+    t6 = mes > 12
+    IF_FALSE t6 GOTO L1
+    t7 = suma_centro / 12.0
+    prom_centro = t7
+    WRITE prom_centro
+    WRITE mes_menor_sur
+    WRITE menor_sur
+    t8 = suma_norte > suma_centro
+    t9 = suma_norte > suma_sur
+    t10 = t8 && t9
+    IF_FALSE t10 GOTO L3
+    region_mayor = 1
+    mayor_anual = suma_norte
+    GOTO L4
+LABEL L3:
+    t11 = suma_centro > suma_sur
+    IF_FALSE t11 GOTO L5
+    region_mayor = 2
+    mayor_anual = suma_centro
+    GOTO L6
+LABEL L5:
+    region_mayor = 3
+    mayor_anual = suma_sur
+LABEL L6:
+LABEL L4:
+    WRITE region_mayor
+    WRITE mayor_anual
+END_MAIN

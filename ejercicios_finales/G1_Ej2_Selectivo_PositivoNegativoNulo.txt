@@ -1,0 +1,25 @@
+// ============================================================================
+// GRUPO 1 - EJERCICIO 2 (ESTRUCTURA SELECTIVA)
+// Enunciado: Construya un programa tal que dado como dato un número entero,
+//            determine e imprima si el mismo es:
+//              positivo = 0
+//              negativo = 1
+//              nulo     = 2
+// ============================================================================
+main {
+    int num, resultado;
+
+    cin >> num;
+
+    if (num > 0) then
+        resultado = 0;
+    else
+        if (num < 0) then
+            resultado = 1;
+        else
+            resultado = 2;
+        end
+    end
+
+    cout << resultado;
+}

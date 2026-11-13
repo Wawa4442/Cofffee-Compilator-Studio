@@ -1,0 +1,22 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): matricula
+# Declaración (float): cal1, cal2, cal3, cal4, cal5, promedio
+    READ matricula
+    READ cal1
+    READ cal2
+    READ cal3
+    READ cal4
+    READ cal5
+    t1 = cal1 + cal2
+    t2 = t1 + cal3
+    t3 = t2 + cal4
+    t4 = t3 + cal5
+    t5 = t4 / 5.0
+    promedio = t5
+    WRITE matricula
+    WRITE promedio
+END_MAIN

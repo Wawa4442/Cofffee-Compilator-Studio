@@ -1,0 +1,11 @@
+# ==========================================================
+# CÓDIGO INTERMEDIO DE TRES DIRECCIONES (.ci)
+# Coffee Compiler Studio - Compiladores II UAA
+# ==========================================================
+BEGIN_MAIN
+# Declaración (int): x, y
+    x = 10
+    y = 20
+    t1 = x + y
+    WRITE t1
+END_MAIN

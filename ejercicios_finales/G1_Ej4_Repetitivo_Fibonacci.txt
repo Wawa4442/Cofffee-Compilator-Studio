@@ -1,0 +1,33 @@
+// ============================================================================
+// GRUPO 1 - EJERCICIO 4 (ESTRUCTURA REPETITIVA - WHILE)
+// Enunciado: Haga un programa que calcule el término número N de la secuencia
+//            FIBONACCI. Recuerde que los dos primeros números de la serie son
+//            0 y 1. El resto se calcula como la suma de los dos números
+//            inmediatos que le preceden (0, 1, 1, 2, 3, 5, 8, 13, 21, 34...).
+// ============================================================================
+main {
+    int n, i, a, b, siguiente, resultado;
+
+    cin >> n;
+
+    if (n <= 1) then
+        resultado = 0;
+    else
+        if (n == 2) then
+            resultado = 1;
+        else
+            a = 0;
+            b = 1;
+            i = 3;
+            while (i <= n) {
+                siguiente = a + b;
+                a = b;
+                b = siguiente;
+                i++;
+            }
+            resultado = b;
+        end
+    end
+
+    cout << resultado;
+}
